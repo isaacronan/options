@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import NamedTuple
 
 
@@ -23,3 +23,18 @@ class ScenarioDetails(NamedTuple):
     total_cost: float
     total_revenue: float
     total_profit: float
+
+
+class DateRange(NamedTuple):
+    start: date
+    end: date
+
+
+class TimeRange(NamedTuple):
+    start: datetime
+    end: datetime
+
+
+class PriceChange(NamedTuple):
+    date_range: DateRange
+    percentage: float
