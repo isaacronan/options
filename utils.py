@@ -1,3 +1,4 @@
+from itertools import groupby
 from typing import Tuple
 
 from rauth import OAuth1Service
@@ -26,6 +27,23 @@ def get_price_changes(prices: Tuple[HistoricalPrice, ...], period_days: int) -> 
         DateRange(a.date, b.date),
         (b.price / a.price) - 1
     ) for a, b in zip(prices[:-period_days], prices[period_days:])])
+
+
+def get_largest_negative_change(changes: Tuple[PriceChange, ...]) -> PriceChange:
+    largest_negative_change = changes[0]
+    for change in changes:
+        if change.percentage < largest_negative_change.percentage:
+            largest_negative_change = change
+    return largest_negative_change
+
+
+def get_largest_negative_changes(prices: Tuple[HistoricalPrice, ...], max_period_days: int) -> Tuple[PriceChange, ...]:
+    all_changes = ()
+    for i in range(1, max_period_days):
+        all_changes = all_changes + get_price_changes(prices, period_days=i)
+    changes_by_start_date = groupby(all_changes, lambda change: change.date_range.start)
+    largest_negative_changes = tuple([get_largest_negative_change(tuple(changes)) for _, changes in changes_by_start_date])
+    return largest_negative_changes
 
 
 def is_overlap(date_range_a: DateRange, date_range_b: DateRange):
