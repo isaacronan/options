@@ -39,7 +39,7 @@ def get_largest_negative_change(changes: Tuple[PriceChange, ...]) -> PriceChange
 
 def get_largest_negative_changes(prices: Tuple[HistoricalPrice, ...], max_period_days: int) -> Tuple[PriceChange, ...]:
     all_changes = ()
-    for i in range(1, max_period_days):
+    for i in range(1, max_period_days + 1):
         all_changes = all_changes + get_price_changes(prices, period_days=i)
     changes_by_start_date = groupby(all_changes, lambda change: change.date_range.start)
     largest_negative_changes = tuple([get_largest_negative_change(tuple(changes)) for _, changes in changes_by_start_date])
@@ -96,7 +96,7 @@ def get_options(symbol: str, expiry_date: date) -> Tuple[Option, ...]:
         expiryDay=f'{expiry_date.day}'
     )
     options = session.get('https://api.etrade.com/v1/market/optionchains.json', params=params).json()['OptionChainResponse']['OptionPair']
-    data = tuple([Option(option['Put']['strikePrice'], option['Put']['lastPrice']) for option in options])
+    data = tuple([Option(expiry_date, option['Put']['strikePrice'], option['Put']['lastPrice']) for option in options])
     return data
 
 
