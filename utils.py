@@ -1,11 +1,12 @@
-from itertools import groupby
-from typing import Tuple
+from typing import Tuple, Callable
 
 from rauth import OAuth1Service
 import os
 import requests
-from datetime import datetime, date, timedelta
-from functools import reduce
+from datetime import date, timedelta
+from functools import reduce, lru_cache
+
+from toolz import groupby
 
 from models import HistoricalPrice, Option, OptionBatch, ScenarioDetails, TimeRange, PriceChange, DateRange, OptionPair, \
     OptionType
@@ -30,28 +31,37 @@ def get_price_changes(prices: Tuple[HistoricalPrice, ...], period_days: int) -> 
     ) for a, b in zip(prices[:-period_days], prices[period_days:])])
 
 
-def get_largest_negative_change(changes: Tuple[PriceChange, ...]) -> PriceChange:
-    largest_negative_change = changes[0]
+def get_largest_change(changes: Tuple[PriceChange, ...], is_larger: Callable[[float, float], bool]) -> PriceChange:
+    largest_change = changes[0]
     for change in changes:
-        if change.percentage < largest_negative_change.percentage:
-            largest_negative_change = change
-    return largest_negative_change
+        if is_larger(change.percentage, largest_change.percentage):
+            largest_change = change
+    return largest_change
 
 
-def get_largest_negative_changes(prices: Tuple[HistoricalPrice, ...], max_period_days: int) -> Tuple[PriceChange, ...]:
+def get_largest_changes(prices: Tuple[HistoricalPrice, ...], max_period_days: int, is_larger: Callable[[float, float], bool]) -> Tuple[PriceChange, ...]:
     all_changes = ()
     for i in range(1, max_period_days + 1):
         all_changes = all_changes + get_price_changes(prices, period_days=i)
-    changes_by_start_date = groupby(all_changes, lambda change: change.date_range.start)
-    largest_negative_changes = tuple([get_largest_negative_change(tuple(changes)) for _, changes in changes_by_start_date])
-    return largest_negative_changes
+    changes_by_start_date = groupby(lambda change: change.date_range.start, all_changes)
+    largest_changes = tuple([get_largest_change(tuple(changes), is_larger) for _, changes in changes_by_start_date.items()])
+    return largest_changes
+
+
+def get_largest_negative_changes(prices: Tuple[HistoricalPrice, ...], max_period_days: int) -> Tuple[PriceChange, ...]:
+    return get_largest_changes(prices, max_period_days, lambda percentage, current: percentage < current)
+
+
+def get_largest_positive_changes(prices: Tuple[HistoricalPrice, ...], max_period_days: int) -> Tuple[PriceChange, ...]:
+    return get_largest_changes(prices, max_period_days, lambda percentage, current: percentage > current)
 
 
 def is_overlap(date_range_a: DateRange, date_range_b: DateRange):
     return (date_range_b.start < date_range_a.end and date_range_a.start <= date_range_b.end) or (date_range_a.start < date_range_b.end and date_range_b.start <= date_range_a.end)
 
 
-def get_session():
+@lru_cache
+def session():
     api_key = os.environ.get('ETRADE_KEY')
     api_secret = os.environ.get('ETRADE_SECRET')
 
@@ -78,11 +88,8 @@ def get_session():
     return session
 
 
-session = get_session()
-
-
 def get_last(symbol: str) -> float:
-    quotes = session.get(f'https://api.etrade.com/v1/market/quote/{symbol}.json').json()
+    quotes = session().get(f'https://api.etrade.com/v1/market/quote/{symbol}.json').json()
     quote = [q for q in quotes['QuoteResponse']['QuoteData'] if q['Product']['symbol'] == symbol][0]
     last = quote['All']['lastTrade']
     return last
@@ -96,7 +103,7 @@ def get_option_pairs(symbol: str, expiry_date: date) -> Tuple[OptionPair, ...]:
         expiryMonth=f'{expiry_date.month}',
         expiryDay=f'{expiry_date.day}'
     )
-    res = session.get('https://api.etrade.com/v1/market/optionchains.json', params=params).json()
+    res = session().get('https://api.etrade.com/v1/market/optionchains.json', params=params).json()
     assert 'Error' not in res, res['Error']['message']
     option_pairs = res['OptionChainResponse']['OptionPair']
     data = tuple([
@@ -129,29 +136,26 @@ def get_return(option_type: OptionType, option_batch: OptionBatch, underlying_pr
     return option_batch.contract_count * MULTIPLIER * max([0, delta])
 
 
-def create_scenario_tester(
-        symbol: str,
-        days_until_expiry: int
-):
-    last = get_last(symbol)
-    expiry_date = date.today() + timedelta(days=days_until_expiry)
-    option_pairs = get_option_pairs(symbol, expiry_date)
+class ScenarioTester:
+    def __init__(self, symbol: str, days_until_expiry: int):
+        self.last = get_last(symbol)
+        self.expiry_date = date.today() + timedelta(days=days_until_expiry)
+        self.option_pairs = get_option_pairs(symbol, self.expiry_date)
 
-    def _test_scenario(
+    def test(
+            self,
             contract_count: int,
             option_type: OptionType,
             target_strike_percentage_change: float,
             target_underlying_percentage_change: float
-    ):
-        target_underlying_price = get_changed_price(last, target_underlying_percentage_change)
-        target_strike_price = get_changed_price(last, target_strike_percentage_change)
-        options = tuple((option.call if option_type == OptionType.Call else option.put) for option in option_pairs)
+    ) -> ScenarioDetails:
+        target_underlying_price = get_changed_price(self.last, target_underlying_percentage_change)
+        target_strike_price = get_changed_price(self.last, target_strike_percentage_change)
+        options = tuple((option.call if option_type == OptionType.Call else option.put) for option in self.option_pairs)
         nearest_option = get_nearest_option(option_type, target_strike_price, options)
         option_batch = OptionBatch(contract_count, nearest_option)
         total_cost = get_option_batch_cost(option_batch)
         total_revenue = get_return(option_type, option_batch, target_underlying_price)
         total_profit = total_revenue - total_cost
 
-        return ScenarioDetails(target_underlying_price, expiry_date, nearest_option, total_cost, total_revenue, total_profit)
-
-    return _test_scenario
+        return ScenarioDetails(target_underlying_price, self.expiry_date, nearest_option, total_cost, total_revenue, total_profit)
