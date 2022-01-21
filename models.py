@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from enum import Enum
 from typing import NamedTuple
 
 
@@ -7,10 +8,21 @@ class HistoricalPrice(NamedTuple):
     price: float
 
 
+class OptionType(Enum):
+    Call = 'Call'
+    Put = 'Put'
+
+
 class Option(NamedTuple):
+    option_type: OptionType
     expiry_date: date
     strike_price: float
     last_price: float
+
+
+class OptionPair(NamedTuple):
+    call: Option
+    put: Option
 
 
 class OptionBatch(NamedTuple):
@@ -19,6 +31,7 @@ class OptionBatch(NamedTuple):
 
 
 class ScenarioDetails(NamedTuple):
+    underlying_price: float
     expiry_date: date
     option: Option
     total_cost: float

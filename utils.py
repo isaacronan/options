@@ -7,7 +7,8 @@ import requests
 from datetime import datetime, date, timedelta
 from functools import reduce
 
-from models import HistoricalPrice, Option, OptionBatch, ScenarioDetails, TimeRange, PriceChange, DateRange
+from models import HistoricalPrice, Option, OptionBatch, ScenarioDetails, TimeRange, PriceChange, DateRange, OptionPair, \
+    OptionType
 
 COMMISSION_PER_CONTRACT = 0.65
 MULTIPLIER = 100
@@ -87,33 +88,45 @@ def get_last(symbol: str) -> float:
     return last
 
 
-def get_options(symbol: str, expiry_date: date) -> Tuple[Option, ...]:
+def get_option_pairs(symbol: str, expiry_date: date) -> Tuple[OptionPair, ...]:
     params = dict(
         symbol=symbol,
-        chainType='PUT',
+        chainType='CALLPUT',
         expiryYear=f'{expiry_date.year}',
         expiryMonth=f'{expiry_date.month}',
         expiryDay=f'{expiry_date.day}'
     )
-    options = session.get('https://api.etrade.com/v1/market/optionchains.json', params=params).json()['OptionChainResponse']['OptionPair']
-    data = tuple([Option(expiry_date, option['Put']['strikePrice'], option['Put']['lastPrice']) for option in options])
+    res = session.get('https://api.etrade.com/v1/market/optionchains.json', params=params).json()
+    assert 'Error' not in res, res['Error']['message']
+    option_pairs = res['OptionChainResponse']['OptionPair']
+    data = tuple([
+        OptionPair(
+            call=Option(OptionType.Call, expiry_date, option_pair['Call']['strikePrice'], option_pair['Call']['lastPrice']),
+            put=Option(OptionType.Put, expiry_date, option_pair['Put']['strikePrice'], option_pair['Put']['lastPrice'])
+        ) for option_pair in option_pairs
+    ])
     return data
 
 
-def get_nearest_option(target_strike_price: float, options: Tuple[Option, ...]) -> Option:
-    return reduce(lambda cur, option: option if abs(option.strike_price - target_strike_price) < abs(cur.strike_price - target_strike_price) else cur, options, options[0])
+def get_nearest_option(option_type: OptionType, target_strike_price: float, options: Tuple[Option, ...]) -> Option:
+    def _is_nearer(candidate: Option, current: Option):
+        is_not_exceeding = candidate.strike_price <= target_strike_price if option_type == OptionType.Call else candidate.strike_price >= target_strike_price
+        return is_not_exceeding and abs(candidate.strike_price - target_strike_price) < abs(current.strike_price - target_strike_price)
+
+    return reduce(lambda cur, option: option if _is_nearer(option, cur) else cur, options, options[0])
 
 
 def get_option_batch_cost(option_batch: OptionBatch) -> float:
     return option_batch.contract_count * (MULTIPLIER * option_batch.option.last_price + COMMISSION_PER_CONTRACT)
 
 
-def get_decreased_price(price: float, percentage_decrease: float):
-    return (1 - percentage_decrease) * price
+def get_changed_price(price: float, percentage_change: float):
+    return (1 + percentage_change) * price
 
 
-def get_return(option_batch: OptionBatch, underlying_price: float):
-    return option_batch.contract_count * MULTIPLIER * max([0, option_batch.option.strike_price - underlying_price])
+def get_return(option_type: OptionType, option_batch: OptionBatch, underlying_price: float):
+    delta = underlying_price - option_batch.option.strike_price if option_type == OptionType.Call else option_batch.option.strike_price - underlying_price
+    return option_batch.contract_count * MULTIPLIER * max([0, delta])
 
 
 def create_scenario_tester(
@@ -122,21 +135,23 @@ def create_scenario_tester(
 ):
     last = get_last(symbol)
     expiry_date = date.today() + timedelta(days=days_until_expiry)
-    options = get_options(symbol, expiry_date)
+    option_pairs = get_option_pairs(symbol, expiry_date)
 
     def _test_scenario(
             contract_count: int,
-            target_strike_decrease: float,
-            target_underlying_decrease: float
+            option_type: OptionType,
+            target_strike_percentage_change: float,
+            target_underlying_percentage_change: float
     ):
-        target_underlying_price = get_decreased_price(last, target_underlying_decrease)
-        target_strike_price = get_decreased_price(last, target_strike_decrease)
-        nearest_option = get_nearest_option(target_strike_price, options)
+        target_underlying_price = get_changed_price(last, target_underlying_percentage_change)
+        target_strike_price = get_changed_price(last, target_strike_percentage_change)
+        options = tuple((option.call if option_type == OptionType.Call else option.put) for option in option_pairs)
+        nearest_option = get_nearest_option(option_type, target_strike_price, options)
         option_batch = OptionBatch(contract_count, nearest_option)
         total_cost = get_option_batch_cost(option_batch)
-        total_revenue = get_return(option_batch, target_underlying_price)
+        total_revenue = get_return(option_type, option_batch, target_underlying_price)
         total_profit = total_revenue - total_cost
 
-        return ScenarioDetails(expiry_date, nearest_option, total_cost, total_revenue, total_profit)
+        return ScenarioDetails(target_underlying_price, expiry_date, nearest_option, total_cost, total_revenue, total_profit)
 
     return _test_scenario
