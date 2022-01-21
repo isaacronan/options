@@ -10,7 +10,7 @@ Build the docker image:
 ./build.sh
 ```
 
-Create a executable shell script called **env.sh** that sets environment variables **ETRADE_KEY** and **ETRADE_SECRET**. For example:
+Set the environment variables **ETRADE_KEY** and **ETRADE_SECRET**. For example:
 
 ```bash
 export ETRADE_KEY='<your api key>'

@@ -115,9 +115,9 @@ def get_option_pairs(symbol: str, expiry_date: date) -> Tuple[OptionPair, ...]:
     return data
 
 
-def get_nearest_option(option_type: OptionType, target_strike_price: float, options: Tuple[Option, ...]) -> Option:
+def get_nearest_option(target_strike_price: float, options: Tuple[Option, ...]) -> Option:
     def _is_nearer(candidate: Option, current: Option):
-        is_not_exceeding = candidate.strike_price <= target_strike_price if option_type == OptionType.Call else candidate.strike_price >= target_strike_price
+        is_not_exceeding = candidate.strike_price <= target_strike_price if candidate.option_type == OptionType.Call else candidate.strike_price >= target_strike_price
         return is_not_exceeding and abs(candidate.strike_price - target_strike_price) < abs(current.strike_price - target_strike_price)
 
     return reduce(lambda cur, option: option if _is_nearer(option, cur) else cur, options, options[0])
@@ -152,7 +152,7 @@ class ScenarioTester:
         target_underlying_price = get_changed_price(self.last, target_underlying_percentage_change)
         target_strike_price = get_changed_price(self.last, target_strike_percentage_change)
         options = tuple((option.call if option_type == OptionType.Call else option.put) for option in self.option_pairs)
-        nearest_option = get_nearest_option(option_type, target_strike_price, options)
+        nearest_option = get_nearest_option(target_strike_price, options)
         option_batch = OptionBatch(contract_count, nearest_option)
         total_cost = get_option_batch_cost(option_batch)
         total_revenue = get_return(option_batch, target_underlying_price)
