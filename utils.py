@@ -131,8 +131,8 @@ def get_changed_price(price: float, percentage_change: float):
     return (1 + percentage_change) * price
 
 
-def get_return(option_type: OptionType, option_batch: OptionBatch, underlying_price: float):
-    delta = underlying_price - option_batch.option.strike_price if option_type == OptionType.Call else option_batch.option.strike_price - underlying_price
+def get_return(option_batch: OptionBatch, underlying_price: float):
+    delta = underlying_price - option_batch.option.strike_price if option_batch.option.option_type == OptionType.Call else option_batch.option.strike_price - underlying_price
     return option_batch.contract_count * MULTIPLIER * max([0, delta])
 
 
@@ -155,7 +155,7 @@ class ScenarioTester:
         nearest_option = get_nearest_option(option_type, target_strike_price, options)
         option_batch = OptionBatch(contract_count, nearest_option)
         total_cost = get_option_batch_cost(option_batch)
-        total_revenue = get_return(option_type, option_batch, target_underlying_price)
+        total_revenue = get_return(option_batch, target_underlying_price)
         total_profit = total_revenue - total_cost
 
         return ScenarioDetails(target_underlying_price, self.expiry_date, nearest_option, total_cost, total_revenue, total_profit)
