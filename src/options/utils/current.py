@@ -42,9 +42,24 @@ def session():
 
 def get_last(symbol: str) -> float:
     quotes = session().get(f'https://api.etrade.com/v1/market/quote/{symbol}.json').json()
+    assert 'QuoteData' in quotes['QuoteResponse'], [message['description'] for message in quotes['QuoteResponse']['Messages']['Message']]
     quote = [q for q in quotes['QuoteResponse']['QuoteData'] if q['Product']['symbol'] == symbol][0]
     last = quote['All']['lastTrade']
     return last
+
+
+def get_expiry_dates(symbol: str) -> Tuple[date, ...]:
+    params=dict(
+        symbol=symbol,
+        expiryType='ALL'
+    )
+    res = session().get('https://api.etrade.com/v1/market/optionexpiredate.json', params=params).json()
+    assert 'Error' not in res, res['Error']['message']
+    expiry_dates = res['OptionExpireDateResponse']['ExpirationDate']
+    data = tuple([
+        date(*map(lambda field: int(expiry_date[field]), ['year', 'month', 'day'])) for expiry_date in expiry_dates
+    ])
+    return data
 
 
 def get_option_pairs(symbol: str, expiry_date: date) -> Tuple[OptionPair, ...]:
@@ -88,10 +103,14 @@ def get_return(option_batch: OptionBatch, underlying_price: float):
     return option_batch.contract_count * MULTIPLIER * max([0, delta])
 
 
+def days_elapsed(days: int) -> date:
+    return date.today() + timedelta(days=days)
+
+
 class ScenarioTester:
-    def __init__(self, symbol: str, days_until_expiry: int):
+    def __init__(self, symbol: str, expiry_date: date):
         self.last = get_last(symbol)
-        self.expiry_date = date.today() + timedelta(days=days_until_expiry)
+        self.expiry_date = expiry_date
         self.option_pairs = get_option_pairs(symbol, self.expiry_date)
 
     def test(
