@@ -1,11 +1,12 @@
 from typing import Tuple
 
+import requests
 from rauth import OAuth1Service
 import os
 from datetime import date, timedelta
 from functools import reduce, lru_cache
 
-from options.models import Option, OptionBatch, ScenarioDetails, OptionPair, OptionType
+from options.models import Option, OptionBatch, ScenarioDetails, OptionPair, OptionType, Stock
 
 COMMISSION_PER_CONTRACT = 0.65
 MULTIPLIER = 100
@@ -130,3 +131,21 @@ class ScenarioTester:
         total_profit = total_revenue - total_cost
 
         return ScenarioDetails(target_underlying_price, self.expiry_date, nearest_option, total_cost, total_revenue, total_profit)
+
+
+def get_nasdaq() -> Tuple[Stock, ...]:
+    rows = requests.get(
+        'https://api.nasdaq.com/api/screener/stocks?tableonly=true&limit=25&offset=0&download=true',
+        headers={'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'}
+    ).json()['data']['rows']
+    data = tuple([
+        Stock(
+            symbol=row['symbol'],
+            name=row['name'],
+            last=float(row['lastsale'][1:]),
+            volume=int(row['volume']),
+            country=row['country'],
+        )
+        for row in rows
+    ])
+    return data

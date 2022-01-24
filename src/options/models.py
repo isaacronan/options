@@ -52,3 +52,11 @@ class TimeRange(NamedTuple):
 class PriceChange(NamedTuple):
     date_range: DateRange
     percentage: float
+
+
+class Stock(NamedTuple):
+    symbol: str
+    name: str
+    last: float
+    volume: int
+    country: str
