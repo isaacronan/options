@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import NamedTuple
+from typing import NamedTuple, Tuple
 
 
 class HistoricalPrice(NamedTuple):
@@ -30,13 +30,26 @@ class OptionBatch(NamedTuple):
     option: Option
 
 
-class ScenarioDetails(NamedTuple):
+class OptionTradeScenario(NamedTuple):
     underlying_price: float
     expiry_date: date
     option: Option
     total_cost: float
     total_revenue: float
     total_profit: float
+
+
+class Period(NamedTuple):
+    cash: float
+    num_shares: int
+
+
+class OptionWriteScenario(NamedTuple):
+    underlying_price: float
+    option: Option
+    periods: Tuple[Period, ...]
+    current_shares_value: float
+    future_shares_value: float
 
 
 class DateRange(NamedTuple):
@@ -54,10 +67,10 @@ class PriceChange(NamedTuple):
     percentage: float
 
 
-class Stock(NamedTuple):
+class ScreenerStock(NamedTuple):
     symbol: str
     name: str
-    last: float
+    last_price: float
     volume: int
 
 
