@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Callable, Any
 
 import requests
 from rauth import OAuth1Service, OAuth1Session
@@ -136,19 +136,31 @@ class ScenarioTester:
         return ScenarioDetails(target_underlying_price, self.expiry_date, nearest_option, total_cost, total_revenue, total_profit)
 
 
-def get_nasdaq() -> Tuple[Stock, ...]:
-    rows = requests.get(
-        'https://api.nasdaq.com/api/screener/stocks?tableonly=true&limit=25&offset=0&download=true',
-        headers={'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'}
-    ).json()['data']['rows']
-    data = tuple([
-        Stock(
-            symbol=row['symbol'],
-            name=row['name'],
-            last=float(row['lastsale'][1:]),
-            volume=int(row['volume']),
-            country=row['country'],
-        )
-        for row in rows
-    ])
-    return data
+class Screener(tuple):
+    def __new__(cls, stocks: Tuple[Stock, ...] = None) -> 'Screener':
+        if stocks is None:
+            rows = requests.get(
+                'https://api.nasdaq.com/api/screener/stocks?tableonly=true&limit=25&offset=0&download=true',
+                headers={'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'}
+            ).json()['data']['rows']
+            return tuple.__new__(Screener, tuple([
+                Stock(
+                    symbol=row['symbol'],
+                    name=row['name'],
+                    last=float(row['lastsale'][1:]),
+                    volume=int(row['volume']),
+                    country=row['country'],
+                )
+                for row in rows
+            ]))
+        else:
+            return tuple.__new__(Screener, stocks)
+
+    def where(self, condition: Callable[[Stock], bool]) -> 'Screener':
+        return Screener(tuple(filter(condition, self)))
+
+    def asc(self, key: Callable[[Stock], Any]) -> 'Screener':
+        return Screener(tuple(sorted(self, key=key)))
+
+    def desc(self, key: Callable[[Stock], Any]) -> 'Screener':
+        return Screener(tuple(sorted(self, key=key, reverse=True)))
