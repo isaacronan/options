@@ -1,19 +1,19 @@
 from typing import Tuple
 
 import requests
-from rauth import OAuth1Service
+from rauth import OAuth1Service, OAuth1Session
 import os
 from datetime import date, timedelta
 from functools import reduce, lru_cache
 
-from options.models import Option, OptionBatch, ScenarioDetails, OptionPair, OptionType, Stock
+from options.models import Option, OptionBatch, ScenarioDetails, OptionPair, OptionType, Stock, ExpiryType
 
 COMMISSION_PER_CONTRACT = 0.65
 MULTIPLIER = 100
 
 
 @lru_cache
-def session():
+def session() -> OAuth1Session:
     api_key = os.environ.get('ETRADE_KEY')
     api_secret = os.environ.get('ETRADE_SECRET')
     assert api_key and api_secret, 'Environment variables ETRADE_KEY and ETRADE_SECRET must be set.'
@@ -49,12 +49,15 @@ def get_last(symbol: str) -> float:
     return last
 
 
-def get_expiry_dates(symbol: str) -> Tuple[date, ...]:
+def get_expiry_dates(symbol: str, expiry_type: ExpiryType = ExpiryType.Weekly) -> Tuple[date, ...]:
     params=dict(
         symbol=symbol,
-        expiryType='ALL'
+        expiryType=expiry_type.value
     )
-    res = session().get('https://api.etrade.com/v1/market/optionexpiredate.json', params=params).json()
+    _res = session().get('https://api.etrade.com/v1/market/optionexpiredate.json', params=params)
+    if not _res.content:
+        return ()
+    res = _res.json()
     assert 'Error' not in res, res['Error']['message']
     expiry_dates = res['OptionExpireDateResponse']['ExpirationDate']
     data = tuple([

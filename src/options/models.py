@@ -60,3 +60,8 @@ class Stock(NamedTuple):
     last: float
     volume: int
     country: str
+
+
+class ExpiryType(Enum):
+    Weekly = 'WEEKLY'
+    Monthly = 'MONTHLY'
