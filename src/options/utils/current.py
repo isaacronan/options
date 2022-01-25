@@ -149,7 +149,6 @@ class Screener(tuple):
                     name=row['name'],
                     last=float(row['lastsale'][1:]),
                     volume=int(row['volume']),
-                    country=row['country'],
                 )
                 for row in rows
             ]))

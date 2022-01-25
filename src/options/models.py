@@ -59,7 +59,6 @@ class Stock(NamedTuple):
     name: str
     last: float
     volume: int
-    country: str
 
 
 class ExpiryType(Enum):
