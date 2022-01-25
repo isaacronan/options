@@ -231,3 +231,9 @@ class Screener(tuple):
 
     def desc(self, key: Callable[[ScreenerStock], Any]) -> 'Screener':
         return Screener(tuple(sorted(self, key=key, reverse=True)))
+
+    def head(self, count) -> 'Screener':
+        return Screener(self[:count])
+
+    def tail(self, count) -> 'Screener':
+        return Screener(self[-count:])
