@@ -1,2 +1,2 @@
-export CUR_DIR=`pwd`
-docker container run -e PYTHONPATH=/options/src -e ETRADE_KEY=$ETRADE_KEY -e ETRADE_SECRET=$ETRADE_SECRET -v $CUR_DIR:/options --rm -it --publish 8088:8088 options-image:latest jupyter notebook --allow-root --ip 0.0.0.0 --port 8088 --notebook-dir notebooks
+docker container run -e PYTHONPATH=/options/src -e ETRADE_KEY=$ETRADE_KEY -e ETRADE_SECRET=$ETRADE_SECRET -v `pwd`:/options --rm -it --publish 8088:8088 --publish 8000:8000 --publish 8765:8765 options-image:latest \
+  /bin/bash -c 'python websocket_server.py > /dev/null 2>&1 & python -m http.server -d web > /dev/null 2>&1 & jupyter notebook --allow-root --ip 0.0.0.0 --port 8088 --notebook-dir notebooks'

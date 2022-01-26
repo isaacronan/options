@@ -1,0 +1,58 @@
+:root {
+    font-size: 10px;
+}
+
+body {
+    font-family: sans-serif;
+    margin: 0;
+    width: 100%;
+    height: 100vh;
+}
+
+svg {
+    width: 100%;
+    height: 100vh;
+}
+
+.line {
+    fill: none;
+    stroke: black;
+    stroke-width: 2;
+}
+
+.area {
+    /*stroke: black;*/
+    fill: transparent;
+    stroke-width: 1;
+}
+
+.point {
+    stroke-width: 1;
+    display: none;
+}
+
+.group:hover .point {
+    display: block;
+}
+
+.tooltip {
+    display: none;
+    position: fixed;
+    pointer-events: none;
+}
+
+.tooltip-content {
+    padding: 4px;
+    background-color: white;
+    border: 2px solid black;
+    position: absolute;
+    width: max-content;
+}
+
+.tooltip-label {
+    font-weight: bold;
+}
+
+.tooltip-y {
+    font-size: 13px;
+}
