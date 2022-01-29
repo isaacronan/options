@@ -28,5 +28,3 @@ Or enter into a terminal in the docker container to edit/run scripts:
 ```bash
 ./run.sh
 ```
-
-See **example.py** for reference.
