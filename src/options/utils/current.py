@@ -6,8 +6,7 @@ import os
 from datetime import date, timedelta
 from functools import reduce, lru_cache
 
-from options.models import Option, OptionBatch, OptionTradeScenario, OptionPair, OptionType, ScreenerStock, ExpiryType, \
-    OptionWriteScenario, Period
+from options.models import Option, OptionBatch, OptionPair, OptionType, ScreenerStock, ExpiryType, Period
 
 COMMISSION_PER_CONTRACT = 0.65
 MULTIPLIER = 100
@@ -103,7 +102,7 @@ def get_changed_price(price: float, percentage_change: float):
     return (1 + percentage_change) * price
 
 
-def get_return(option_batch: OptionBatch, underlying_price: float):
+def get_return(option_batch: OptionBatch, underlying_price: float) -> float:
     delta = underlying_price - option_batch.option.strike_price if option_batch.option.option_type == OptionType.Call else option_batch.option.strike_price - underlying_price
     return option_batch.contract_count * MULTIPLIER * max([0, delta])
 
@@ -121,6 +120,7 @@ def get_nearest_otm_call(calls: Tuple[Option, ...], last: float, min_otm_percent
     )
     return nearest
 
+
 def get_nearest_otm_put(puts: Tuple[Option, ...], last: float, min_otm_percentage: float) -> Option:
     otm_puts = sorted(puts, key=lambda o: o.strike_price)
     nearest = reduce(
@@ -129,6 +129,66 @@ def get_nearest_otm_put(puts: Tuple[Option, ...], last: float, min_otm_percentag
         otm_puts[0]
     )
     return nearest
+
+
+class OptionTradeScenario:
+    def __init__(self, target_underlying_price: float, option: Option, contract_count: int):
+        self.target_underlying_price = target_underlying_price
+        self.option = option
+        self.contract_count = contract_count
+
+    @property
+    def option_batch(self) -> OptionBatch:
+        return OptionBatch(self.contract_count, self.option)
+
+    @property
+    def total_cost(self) -> float:
+        return get_option_batch_cost(self.option_batch)
+
+    @property
+    def total_revenue(self) -> float:
+        return get_return(self.option_batch, self.target_underlying_price)
+
+    @property
+    def total_profit(self) -> float:
+        return self.total_revenue - self.total_cost
+
+
+class OptionWriteScenario:
+    def __init__(self, underlying_price: float, initial_num_shares: int, option: Option, num_periods: int):
+        self.underlying_price = underlying_price
+        self.initial_num_shares = initial_num_shares
+        self.option = option
+        self.num_periods = num_periods
+
+    @property
+    def periods(self) -> Tuple[Period, ...]:
+        option_cost = self.option.last_price
+        num_shares = self.initial_num_shares
+        cash = 0
+        periods = []
+        for i in range(self.num_periods):
+            num_contracts = int(num_shares / MULTIPLIER)
+            premium = num_contracts * MULTIPLIER * option_cost
+            cash += premium - (num_contracts * COMMISSION_PER_CONTRACT)
+            if cash >= self.underlying_price * MULTIPLIER:
+                purchase_batch_size = int(cash / (self.underlying_price * MULTIPLIER))
+                cash -= purchase_batch_size * self.underlying_price * MULTIPLIER
+                num_shares += purchase_batch_size * MULTIPLIER
+            periods.append(Period(cash, num_shares))
+        return tuple(periods)
+
+    @property
+    def shares_present_value(self) -> float:
+        return self.underlying_price * self.initial_num_shares
+
+    @property
+    def shares_future_count(self) -> int:
+        return self.periods[-1].num_shares
+
+    @property
+    def shares_future_value(self) -> float:
+        return self.underlying_price * self.shares_future_count
 
 
 class Stock:
@@ -164,25 +224,11 @@ class Stock:
             num_periods: int
     ) -> OptionWriteScenario:
         nearest = self.get_nearest_otm_call(min_otm_percentage) if option_type == OptionType.Call else self.get_nearest_otm_put(min_otm_percentage)
-        option_cost = nearest.last_price
-        num_shares = initial_num_shares
-        cash = 0
-        periods = []
-        for i in range(num_periods):
-            num_contracts = int(num_shares / MULTIPLIER)
-            premium = num_contracts * MULTIPLIER * option_cost
-            cash += premium - (num_contracts * COMMISSION_PER_CONTRACT)
-            if cash >= self.last_price * MULTIPLIER:
-                purchase_batch_size = int(cash / (self.last_price * MULTIPLIER))
-                cash -= purchase_batch_size * self.last_price * MULTIPLIER
-                num_shares += purchase_batch_size * MULTIPLIER
-            periods.append(Period(cash, num_shares))
         return OptionWriteScenario(
             self.last_price,
+            initial_num_shares,
             nearest,
-            tuple(periods),
-            self.last_price * initial_num_shares,
-            self.last_price * num_shares
+            num_periods,
         )
 
     def test_option_trade(
@@ -196,12 +242,8 @@ class Stock:
         target_strike_price = get_changed_price(self.last_price, target_strike_percentage_change)
         options = tuple((option.call if option_type == OptionType.Call else option.put) for option in self.option_pairs)
         nearest_option = get_nearest_option(target_strike_price, options)
-        option_batch = OptionBatch(contract_count, nearest_option)
-        total_cost = get_option_batch_cost(option_batch)
-        total_revenue = get_return(option_batch, target_underlying_price)
-        total_profit = total_revenue - total_cost
 
-        return OptionTradeScenario(target_underlying_price, self.expiry_date, nearest_option, total_cost, total_revenue, total_profit)
+        return OptionTradeScenario(target_underlying_price, nearest_option, contract_count)
 
 
 class Screener(tuple):
