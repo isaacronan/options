@@ -6,7 +6,9 @@ import os
 from datetime import date, timedelta
 from functools import reduce, lru_cache
 
-from options.models import Option, OptionBatch, OptionPair, OptionType, ScreenerStock, ExpiryType, Period
+from options.models import Option, OptionBatch, OptionPair, OptionType, Stock, ExpiryType, Period, TimeRange
+from options.utils.historical import get_weighted_price, \
+    get_weighted_historical_prices_by_symbol, get_collapsed_historical_prices
 
 COMMISSION_PER_CONTRACT = 0.65
 MULTIPLIER = 100
@@ -41,16 +43,17 @@ def session() -> OAuth1Session:
     return _session
 
 
-def get_last(symbol: str) -> float:
-    quotes = session().get(f'https://api.etrade.com/v1/market/quote/{symbol}.json').json()
+def get_last(symbols: Tuple[str, ...]) -> Tuple[float, ...]:
+    _symbols = ','.join(symbols)
+    quotes = session().get(f'https://api.etrade.com/v1/market/quote/{_symbols}.json').json()
     assert 'QuoteData' in quotes['QuoteResponse'], [message['description'] for message in quotes['QuoteResponse']['Messages']['Message']]
-    quote = [q for q in quotes['QuoteResponse']['QuoteData'] if q['Product']['symbol'] == symbol][0]
-    last = quote['All']['lastTrade']
-    return last
+    quotes = [[q for q in quotes['QuoteResponse']['QuoteData'] if q['Product']['symbol'] == symbol][0] for symbol in symbols]
+    last = [quote['All']['lastTrade'] for quote in quotes]
+    return tuple(last)
 
 
 def get_expiry_dates(symbol: str, expiry_type: ExpiryType = ExpiryType.Weekly) -> Tuple[date, ...]:
-    params=dict(
+    params = dict(
         symbol=symbol,
         expiryType=expiry_type.value
     )
@@ -111,20 +114,20 @@ def days_elapsed(days: int) -> date:
     return date.today() + timedelta(days=days)
 
 
-def get_nearest_otm_call(calls: Tuple[Option, ...], last: float, min_otm_percentage: float) -> Option:
+def get_nearest_otm_call(calls: Tuple[Option, ...], underlying_last_price: float, min_otm_percentage: float) -> Option:
     otm_calls = sorted(calls, key=lambda o: o.strike_price, reverse=True)
     nearest = reduce(
-        lambda acc, cur: cur if (cur.strike_price / last) >= (1 + min_otm_percentage) and cur.strike_price < acc.strike_price else acc,
+        lambda acc, cur: cur if (cur.strike_price / underlying_last_price) >= (1 + min_otm_percentage) and cur.strike_price < acc.strike_price else acc,
         otm_calls,
         otm_calls[0]
     )
     return nearest
 
 
-def get_nearest_otm_put(puts: Tuple[Option, ...], last: float, min_otm_percentage: float) -> Option:
+def get_nearest_otm_put(puts: Tuple[Option, ...], underlying_last_price: float, min_otm_percentage: float) -> Option:
     otm_puts = sorted(puts, key=lambda o: o.strike_price)
     nearest = reduce(
-        lambda acc, cur: cur if (cur.strike_price / last) <= (1 - min_otm_percentage) and cur.strike_price > acc.strike_price else acc,
+        lambda acc, cur: cur if (cur.strike_price / underlying_last_price) <= (1 - min_otm_percentage) and cur.strike_price > acc.strike_price else acc,
         otm_puts,
         otm_puts[0]
     )
@@ -191,11 +194,11 @@ class OptionWriteScenario:
         return self.underlying_price * self.shares_future_count
 
 
-class Stock:
+class OptionInspector:
     def __init__(self, symbol: str, expiry_date: date):
         self.symbol = symbol
         self.expiry_date = expiry_date
-        self.last_price = get_last(self.symbol)
+        self.underlying_last_price, = get_last((self.symbol,))
         self.option_pairs = get_option_pairs(self.symbol, self.expiry_date)
 
     @property
@@ -209,11 +212,11 @@ class Stock:
         return puts
 
     def get_nearest_otm_call(self, min_otm_percentage: float) -> Option:
-        nearest = get_nearest_otm_call(self.calls, self.last_price, min_otm_percentage)
+        nearest = get_nearest_otm_call(self.calls, self.underlying_last_price, min_otm_percentage)
         return nearest
 
     def get_nearest_otm_put(self, min_otm_percentage: float) -> Option:
-        nearest = get_nearest_otm_put(self.puts, self.last_price, min_otm_percentage)
+        nearest = get_nearest_otm_put(self.puts, self.underlying_last_price, min_otm_percentage)
         return nearest
 
     def test_option_write(
@@ -225,7 +228,7 @@ class Stock:
     ) -> OptionWriteScenario:
         nearest = self.get_nearest_otm_call(min_otm_percentage) if option_type == OptionType.Call else self.get_nearest_otm_put(min_otm_percentage)
         return OptionWriteScenario(
-            self.last_price,
+            self.underlying_last_price,
             initial_num_shares,
             nearest,
             num_periods,
@@ -238,8 +241,8 @@ class Stock:
             target_strike_percentage_change: float,
             target_underlying_percentage_change: float
     ) -> OptionTradeScenario:
-        target_underlying_price = get_changed_price(self.last_price, target_underlying_percentage_change)
-        target_strike_price = get_changed_price(self.last_price, target_strike_percentage_change)
+        target_underlying_price = get_changed_price(self.underlying_last_price, target_underlying_percentage_change)
+        target_strike_price = get_changed_price(self.underlying_last_price, target_strike_percentage_change)
         options = tuple((option.call if option_type == OptionType.Call else option.put) for option in self.option_pairs)
         nearest_option = get_nearest_option(target_strike_price, options)
 
@@ -247,14 +250,14 @@ class Stock:
 
 
 class Screener(tuple):
-    def __new__(cls, stocks: Tuple[ScreenerStock, ...] = None) -> 'Screener':
+    def __new__(cls, stocks: Tuple[Stock, ...] = None) -> 'Screener':
         if stocks is None:
             rows = requests.get(
                 'https://api.nasdaq.com/api/screener/stocks?tableonly=true&limit=25&offset=0&download=true',
                 headers={'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'}
             ).json()['data']['rows']
             return tuple.__new__(Screener, tuple([
-                ScreenerStock(
+                Stock(
                     symbol=row['symbol'],
                     name=row['name'],
                     last_price=float(row['lastsale'][1:]),
@@ -265,13 +268,13 @@ class Screener(tuple):
         else:
             return tuple.__new__(Screener, stocks)
 
-    def where(self, condition: Callable[[ScreenerStock], bool]) -> 'Screener':
+    def where(self, condition: Callable[[Stock], bool]) -> 'Screener':
         return Screener(tuple(filter(condition, self)))
 
-    def asc(self, key: Callable[[ScreenerStock], Any]) -> 'Screener':
+    def asc(self, key: Callable[[Stock], Any]) -> 'Screener':
         return Screener(tuple(sorted(self, key=key)))
 
-    def desc(self, key: Callable[[ScreenerStock], Any]) -> 'Screener':
+    def desc(self, key: Callable[[Stock], Any]) -> 'Screener':
         return Screener(tuple(sorted(self, key=key, reverse=True)))
 
     def head(self, count) -> 'Screener':
@@ -279,3 +282,16 @@ class Screener(tuple):
 
     def tail(self, count) -> 'Screener':
         return Screener(self[-count:])
+
+
+class PortfolioInspector:
+    def __init__(self, symbols: Tuple[str, ...]):
+        self.symbols = symbols
+        self.last_prices = get_last(tuple(symbol for symbol in self.symbols))
+
+    def present_value(self, share_counts: Tuple[int, ...]) -> float:
+        return sum([get_weighted_price(last_price, share_count) for last_price, share_count in zip(self.last_prices, share_counts)])
+
+    def historical_prices(self, share_counts: Tuple[int, ...], time_range: TimeRange):
+        historical_prices_by_symbol = get_weighted_historical_prices_by_symbol(self.symbols, share_counts, time_range)
+        return get_collapsed_historical_prices(historical_prices_by_symbol)

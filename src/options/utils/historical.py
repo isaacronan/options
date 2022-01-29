@@ -3,7 +3,7 @@ from typing import Tuple, Callable
 import requests
 from datetime import date
 
-from toolz import groupby
+from toolz import groupby, concat
 
 from options.models import HistoricalPrice, TimeRange, PriceChange, DateRange
 
@@ -51,3 +51,35 @@ def get_largest_positive_changes(prices: Tuple[HistoricalPrice, ...], max_period
 
 def is_overlap(date_range_a: DateRange, date_range_b: DateRange):
     return (date_range_b.start < date_range_a.end and date_range_a.start <= date_range_b.end) or (date_range_a.start < date_range_b.end and date_range_b.start <= date_range_a.end)
+
+
+def get_weighted_price(price: float, weight: int) -> float:
+    return weight * price
+
+
+def get_weighted_historical_prices(historical_prices: Tuple[HistoricalPrice, ...], weight: int) -> Tuple[HistoricalPrice, ...]:
+    return tuple([
+        HistoricalPrice(price.date, get_weighted_price(price.price, weight)) for price in historical_prices
+    ])
+
+
+def get_historical_prices_by_symbol(symbols: Tuple[str, ...], time_range: TimeRange) -> Tuple[Tuple[HistoricalPrice, ...], ...]:
+    historical_prices_by_symbol = [get_historical_prices(symbol, time_range) for symbol in symbols]
+    return tuple(historical_prices_by_symbol)
+
+
+def get_weighted_historical_prices_by_symbol(symbols: Tuple[str, ...], weights: Tuple[int, ...], time_range: TimeRange) -> Tuple[Tuple[HistoricalPrice, ...], ...]:
+    historical_prices_by_symbol = get_historical_prices_by_symbol(symbols, time_range)
+    return tuple([
+        get_weighted_historical_prices(historical_prices, weight) for weight, historical_prices in zip(weights, historical_prices_by_symbol)
+    ])
+
+
+def get_collapsed_historical_prices(historical_prices_groups: Tuple[Tuple[HistoricalPrice, ...], ...]):
+    assert len(set([len(historical_prices) for historical_prices in historical_prices_groups])) == 1, 'Different sized price ranges can not be collapsed.'
+    historical_prices_by_date = groupby(lambda historical_price: historical_price.date, concat(historical_prices_groups))
+    collapsed = [
+        HistoricalPrice(_date, sum([historical_price.price for historical_price in historical_prices]))
+        for _date, historical_prices in historical_prices_by_date.items()
+    ]
+    return tuple(collapsed)

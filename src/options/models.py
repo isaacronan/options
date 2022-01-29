@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import NamedTuple, Tuple
+from typing import NamedTuple
 
 
 class HistoricalPrice(NamedTuple):
@@ -50,7 +50,7 @@ class PriceChange(NamedTuple):
     percentage: float
 
 
-class ScreenerStock(NamedTuple):
+class Stock(NamedTuple):
     symbol: str
     name: str
     last_price: float
