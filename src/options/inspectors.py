@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Tuple
 
 from datetime import date
@@ -135,9 +136,10 @@ class PortfolioInspector:
         return sum([get_weighted_price(last_price, share_count) for last_price, share_count in zip(last_prices, share_counts)])
 
     def portfolio_historical_prices(self, share_counts: Tuple[int, ...], time_range: TimeRange) -> Tuple[HistoricalPrice, ...]:
-        historical_prices_by_symbol = get_historical_prices_by_symbol(self.symbols, time_range)
+        historical_prices_by_symbol = self.historical_prices_by_symbol(time_range)
         weighted_historical_prices_by_symbol = get_weighted_historical_prices_by_group(historical_prices_by_symbol, share_counts)
         return get_collapsed_historical_prices(weighted_historical_prices_by_symbol)
 
+    @lru_cache
     def historical_prices_by_symbol(self, time_range: TimeRange):
         return get_historical_prices_by_symbol(self.symbols, time_range)
