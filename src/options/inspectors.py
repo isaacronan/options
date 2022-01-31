@@ -9,7 +9,7 @@ from options.models import Option, OptionBatch, OptionType, Period, TimeRange, H
 from options.utils.common import get_changed_price, get_weighted_price
 from options.utils.historical import get_collapsed_historical_prices, get_weighted_historical_prices_by_group
 from options.utils.options import get_option_batch_cost, get_return, MULTIPLIER, COMMISSION_PER_CONTRACT, \
-    get_nearest_otm_call, get_nearest_otm_put, get_nearest_option
+    get_nearest_otm_call, get_nearest_otm_put, get_nearest_option, get_nearest_delta_call, get_nearest_delta_put
 
 
 class OptionTradeScenario:
@@ -97,14 +97,22 @@ class OptionInspector:
         nearest = get_nearest_otm_put(self.puts, self.underlying_last_price, min_otm_percentage)
         return nearest
 
+    def get_nearest_delta_call(self, min_delta: float) -> Option:
+        nearest = get_nearest_delta_call(self.calls, min_delta)
+        return nearest
+
+    def get_nearest_delta_put(self, min_delta: float) -> Option:
+        nearest = get_nearest_delta_put(self.puts, min_delta)
+        return nearest
+
     def test_option_write(
             self,
             initial_num_shares: int,
             option_type: OptionType,
-            min_otm_percentage: float,
+            min_delta: float,
             num_periods: int
     ) -> OptionWriteScenario:
-        nearest = self.get_nearest_otm_call(min_otm_percentage) if option_type == OptionType.Call else self.get_nearest_otm_put(min_otm_percentage)
+        nearest = self.get_nearest_delta_call(min_delta) if option_type == OptionType.Call else self.get_nearest_delta_put(min_delta)
         return OptionWriteScenario(
             self.underlying_last_price,
             initial_num_shares,

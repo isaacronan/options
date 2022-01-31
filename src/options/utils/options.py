@@ -43,3 +43,25 @@ def get_nearest_otm_put(puts: Tuple[Option, ...], underlying_last_price: float, 
         otm_puts[0]
     )
     return nearest
+
+
+def get_nearest_delta_call(calls: Tuple[Option, ...], min_delta: float) -> Option:
+    assert min_delta > 0, 'Delta must be > 0 for call options.'
+    otm_calls = sorted(calls, key=lambda o: o.strike_price, reverse=True)
+    nearest = reduce(
+        lambda acc, cur: cur if min_delta > cur.greeks.delta > acc.greeks.delta else acc,
+        otm_calls,
+        otm_calls[0]
+    )
+    return nearest
+
+
+def get_nearest_delta_put(puts: Tuple[Option, ...], min_delta: float) -> Option:
+    assert min_delta < 0, 'Delta must be < 0 for call options.'
+    otm_puts = sorted(puts, key=lambda o: o.strike_price)
+    nearest = reduce(
+        lambda acc, cur: cur if min_delta < cur.greeks.delta < acc.greeks.delta else acc,
+        otm_puts,
+        otm_puts[0]
+    )
+    return nearest
