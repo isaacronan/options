@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, date as _date
 
-from options.models import DateRange
+from options.models import DateRange, TimeRange
 
 
 def to_timestamp(date: _date):
@@ -13,6 +13,10 @@ def days_ago(days: int) -> datetime:
 
 def days_elapsed(days: int) -> _date:
     return _date.today() + timedelta(days=days)
+
+
+def last_days(days: int) -> TimeRange:
+    return TimeRange(days_ago(days), datetime.now())
 
 
 def is_overlap(date_range_a: DateRange, date_range_b: DateRange):

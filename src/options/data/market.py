@@ -6,7 +6,7 @@ import os
 from datetime import date
 from functools import lru_cache
 
-from options.models import Option, OptionPair, OptionType, Stock, ExpiryType
+from options.models import Option, OptionPair, OptionType, Stock, ExpiryType, Greeks
 
 
 @lru_cache
@@ -77,8 +77,34 @@ def get_option_pairs(symbol: str, expiry_date: date) -> Tuple[OptionPair, ...]:
     option_pairs = res['OptionChainResponse']['OptionPair']
     data = tuple([
         OptionPair(
-            call=Option(OptionType.Call, expiry_date, option_pair['Call']['strikePrice'], option_pair['Call']['lastPrice']),
-            put=Option(OptionType.Put, expiry_date, option_pair['Put']['strikePrice'], option_pair['Put']['lastPrice'])
+            call=Option(
+                OptionType.Call,
+                expiry_date,
+                option_pair['Call']['strikePrice'],
+                option_pair['Call']['lastPrice'],
+                Greeks(
+                    option_pair['Call']['OptionGreeks']['rho'],
+                    option_pair['Call']['OptionGreeks']['vega'],
+                    option_pair['Call']['OptionGreeks']['theta'],
+                    option_pair['Call']['OptionGreeks']['delta'],
+                    option_pair['Call']['OptionGreeks']['gamma'],
+                    option_pair['Call']['OptionGreeks']['iv'],
+                )
+            ),
+            put=Option(
+                OptionType.Put,
+                expiry_date,
+                option_pair['Put']['strikePrice'],
+                option_pair['Put']['lastPrice'],
+                Greeks(
+                    option_pair['Put']['OptionGreeks']['rho'],
+                    option_pair['Put']['OptionGreeks']['vega'],
+                    option_pair['Put']['OptionGreeks']['theta'],
+                    option_pair['Put']['OptionGreeks']['delta'],
+                    option_pair['Put']['OptionGreeks']['gamma'],
+                    option_pair['Put']['OptionGreeks']['iv'],
+                )
+            )
         ) for option_pair in option_pairs
     ])
     return data

@@ -13,11 +13,21 @@ class OptionType(Enum):
     Put = 'Put'
 
 
+class Greeks(NamedTuple):
+    rho: float
+    vega: float
+    theta: float
+    delta: float
+    gamma: float
+    iv: float
+
+
 class Option(NamedTuple):
     option_type: OptionType
     expiry_date: date
     strike_price: float
     last_price: float
+    greeks: Greeks
 
 
 class OptionPair(NamedTuple):
