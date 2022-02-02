@@ -43,6 +43,10 @@ class OptionWriteScenario:
         self.num_periods = num_periods
 
     @property
+    def share_price(self):
+        return self.underlying_price if self.option.option_type == OptionType.Call else self.option.strike_price
+
+    @property
     def periods(self) -> Tuple[Period, ...]:
         option_cost = self.option.last_price
         num_shares = self.initial_num_shares
@@ -52,16 +56,16 @@ class OptionWriteScenario:
             num_contracts = int(num_shares / MULTIPLIER)
             premium = num_contracts * MULTIPLIER * option_cost
             cash += premium - (num_contracts * COMMISSION_PER_CONTRACT)
-            if cash >= self.underlying_price * MULTIPLIER:
-                purchase_batch_size = int(cash / (self.underlying_price * MULTIPLIER))
-                cash -= purchase_batch_size * self.underlying_price * MULTIPLIER
+            if cash >= self.share_price * MULTIPLIER:
+                purchase_batch_size = int(cash / (self.share_price * MULTIPLIER))
+                cash -= purchase_batch_size * self.share_price * MULTIPLIER
                 num_shares += purchase_batch_size * MULTIPLIER
             periods.append(Period(cash, num_shares))
         return tuple(periods)
 
     @property
     def shares_present_value(self) -> float:
-        return self.underlying_price * self.initial_num_shares
+        return self.share_price * self.initial_num_shares
 
     @property
     def shares_future_count(self) -> int:
@@ -69,7 +73,7 @@ class OptionWriteScenario:
 
     @property
     def shares_future_value(self) -> float:
-        return self.underlying_price * self.shares_future_count
+        return self.share_price * self.shares_future_count
 
 
 class OptionInspector:
