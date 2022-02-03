@@ -37,10 +37,11 @@ def create_balanced_portfolio(
         items: Tuple[Any, ...],
         get_key: Callable[[Any], str],
         get_price: Callable[[Any], float],
-        batch_size: int = 100
+        batch_size: int = 100,
+        cost_per_batch: float = 0.65
 ) -> Mapping[str, int]:
     def _get_num_affordable_items(_remaining_spend):
-        return len([i for i in items if _remaining_spend >= get_price(i) * batch_size])
+        return len([i for i in items if _remaining_spend >= get_price(i) * batch_size + cost_per_batch])
 
     remaining_spend = max_spend
     items_desc_price = sorted(items, key=get_price, reverse=True)
@@ -50,12 +51,12 @@ def create_balanced_portfolio(
             if not _get_num_affordable_items(remaining_spend):
                 break
             even_spend_per = remaining_spend / _get_num_affordable_items(remaining_spend)
-            if even_spend_per >= get_price(item) * batch_size:
-                quantity = int(even_spend_per / (get_price(item) * batch_size)) * batch_size
+            if even_spend_per >= get_price(item) * batch_size + cost_per_batch:
+                quantity = int(even_spend_per / (get_price(item) * batch_size + cost_per_batch)) * batch_size
                 positions[get_key(item)] = positions.get(get_key(item), 0) + quantity
-                remaining_spend -= get_price(item) * quantity
+                remaining_spend -= get_price(item) * quantity + cost_per_batch * (quantity / batch_size)
             else:
-                quantity = batch_size if remaining_spend >= batch_size * get_price(item) else 0
+                quantity = batch_size if remaining_spend >= batch_size * get_price(item) + cost_per_batch else 0
                 positions[get_key(item)] = positions.get(get_key(item), 0) + quantity
-                remaining_spend -= get_price(item) * quantity
+                remaining_spend -= get_price(item) * quantity + cost_per_batch * (quantity / batch_size)
     return positions
