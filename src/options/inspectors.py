@@ -106,17 +106,21 @@ class OptionInspector:
         return nearest
 
     def get_nearest_delta_put(self, min_delta: float) -> Option:
-        nearest = get_nearest_delta_put(self.puts, min_delta)
+        nearest = get_nearest_delta_put(self.puts, -min_delta)
         return nearest
 
     def test_option_write(
             self,
             initial_num_shares: int,
             option_type: OptionType,
-            min_delta: float,
-            num_periods: int
+            min_percentage: float,
+            num_periods: int,
+            use_delta: bool = False
     ) -> OptionWriteScenario:
-        nearest = self.get_nearest_delta_call(min_delta) if option_type == OptionType.Call else self.get_nearest_delta_put(min_delta)
+        if use_delta:
+            nearest = self.get_nearest_delta_call(min_percentage) if option_type == OptionType.Call else self.get_nearest_delta_put(min_percentage)
+        else:
+            nearest = self.get_nearest_otm_call(min_percentage) if option_type == OptionType.Call else self.get_nearest_otm_put(min_percentage)
         return OptionWriteScenario(
             self.underlying_last_price,
             initial_num_shares,
