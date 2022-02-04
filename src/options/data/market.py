@@ -82,6 +82,7 @@ def get_option_pairs(symbol: str, expiry_date: date) -> Tuple[OptionPair, ...]:
                 expiry_date,
                 option_pair['Call']['strikePrice'],
                 option_pair['Call']['lastPrice'],
+                option_pair['Call']['volume'],
                 Greeks(
                     option_pair['Call']['OptionGreeks']['rho'],
                     option_pair['Call']['OptionGreeks']['vega'],
@@ -96,6 +97,7 @@ def get_option_pairs(symbol: str, expiry_date: date) -> Tuple[OptionPair, ...]:
                 expiry_date,
                 option_pair['Put']['strikePrice'],
                 option_pair['Put']['lastPrice'],
+                option_pair['Put']['volume'],
                 Greeks(
                     option_pair['Put']['OptionGreeks']['rho'],
                     option_pair['Put']['OptionGreeks']['vega'],

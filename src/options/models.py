@@ -27,6 +27,7 @@ class Option(NamedTuple):
     expiry_date: date
     strike_price: float
     last_price: float
+    volume: int
     greeks: Greeks
 
 
