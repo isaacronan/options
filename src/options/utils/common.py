@@ -1,3 +1,4 @@
+import inspect
 from datetime import datetime, timedelta, date as _date
 from typing import Tuple, Any, Callable, Mapping
 
@@ -60,3 +61,25 @@ def create_balanced_portfolio(
                 positions[get_key(item)] = positions.get(get_key(item), 0) + quantity
                 remaining_spend -= get_price(item) * quantity + cost_per_batch * (quantity / batch_size)
     return positions
+
+
+class Criteria:
+    def __init__(self, *criteria: Callable[..., bool]):
+        self.criteria = tuple(criteria)
+
+    def n(self, criterion) -> 'Criteria':
+        return Criteria(*self.criteria, criterion)
+
+    def __call__(self, **kwargs) -> Callable[[Any], bool]:
+        def _partial(func):
+            additional_param_names = list(inspect.signature(func).parameters.keys())[1:]
+            additional_param_values = [kwargs[name] for name in additional_param_names]
+
+            def _func(item):
+                return func(item, *additional_param_values)
+            return _func
+
+        def _all(item):
+            return all([_partial(func)(item) for func in self.criteria])
+
+        return _all
