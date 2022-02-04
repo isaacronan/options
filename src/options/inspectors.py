@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Tuple
+from typing import Tuple, Callable, Optional
 
 from datetime import date
 
@@ -9,7 +9,7 @@ from options.models import Option, OptionBatch, OptionType, Period, TimeRange, H
 from options.utils.common import get_changed_price, get_weighted_price
 from options.utils.historical import get_collapsed_historical_prices, get_weighted_historical_prices_by_group
 from options.utils.options import get_option_batch_cost, get_return, MULTIPLIER, COMMISSION_PER_CONTRACT, \
-    get_nearest_otm_call, get_nearest_otm_put, get_nearest_option, get_nearest_delta_call, get_nearest_delta_put
+    get_nearest_option, get_best_option
 
 
 class OptionTradeScenario:
@@ -93,26 +93,27 @@ class OptionInspector:
         puts = tuple([option_pair.put for option_pair in self.option_pairs])
         return puts
 
-    def get_nearest_otm_call(self, min_otm_percentage: float) -> Option:
-        nearest = get_nearest_otm_call(self.calls, self.underlying_last_price, min_otm_percentage)
-        return nearest
+    def get_best_call(self, option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
+        best = get_best_option(self.calls, option_criteria)
+        return best
 
-    def get_nearest_otm_put(self, min_otm_percentage: float) -> Option:
-        nearest = get_nearest_otm_put(self.puts, self.underlying_last_price, min_otm_percentage)
-        return nearest
+    def get_best_put(self, option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
+        best = get_best_option(self.puts, option_criteria)
+        return best
 
     def test_option_write(
             self,
             initial_num_shares: int,
             option_type: OptionType,
-            min_percentage_otm: float,
-            num_periods: int
+            num_periods: int,
+            option_criteria: Callable[[Option], bool] = lambda _: True
     ) -> OptionWriteScenario:
-        nearest = self.get_nearest_otm_call(min_percentage_otm) if option_type == OptionType.Call else self.get_nearest_otm_put(min_percentage_otm)
+        best = self.get_best_call(option_criteria) if option_type == OptionType.Call else self.get_best_put(option_criteria)
+        assert best is not None, 'No option found to satisfy criteria.'
         return OptionWriteScenario(
             self.underlying_last_price,
             initial_num_shares,
-            nearest,
+            best,
             num_periods,
         )
 

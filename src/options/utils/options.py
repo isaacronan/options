@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional, Callable
 
 from functools import reduce
 
@@ -25,43 +25,54 @@ def get_return(option_batch: OptionBatch, underlying_price: float) -> float:
     return option_batch.contract_count * MULTIPLIER * max([0, delta])
 
 
-def get_nearest_otm_call(calls: Tuple[Option, ...], underlying_last_price: float, min_otm_percentage: float) -> Option:
-    otm_calls = sorted(calls, key=lambda o: o.strike_price, reverse=True)
-    nearest = reduce(
-        lambda acc, cur: cur if (cur.strike_price / underlying_last_price) >= (1 + min_otm_percentage) and cur.strike_price < acc.strike_price else acc,
-        otm_calls,
-        otm_calls[0]
-    )
-    return nearest
+def get_best_option(options: Tuple[Option, ...], option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
+    candidate_options = tuple(filter(option_criteria, options))
+    if not candidate_options:
+        return None
+    return max(candidate_options, key=lambda option: option.last_price)
 
 
-def get_nearest_otm_put(puts: Tuple[Option, ...], underlying_last_price: float, min_otm_percentage: float) -> Option:
-    otm_puts = sorted(puts, key=lambda o: o.strike_price)
-    nearest = reduce(
-        lambda acc, cur: cur if (cur.strike_price / underlying_last_price) <= (1 - min_otm_percentage) and cur.strike_price > acc.strike_price else acc,
-        otm_puts,
-        otm_puts[0]
-    )
-    return nearest
+# def get_nearest_otm_call(calls: Tuple[Option, ...], underlying_last_price: float, min_otm_percentage: float) -> Optional[Option]:
+#     otm_calls = sorted(calls, key=lambda o: o.strike_price, reverse=True)
+#     if not otm_calls or (otm_calls[0].strike_price / underlying_last_price) < (1 + min_otm_percentage):
+#         return None
+#     nearest = reduce(
+#         lambda acc, cur: cur if (cur.strike_price / underlying_last_price) >= (1 + min_otm_percentage) and cur.strike_price < acc.strike_price else acc,
+#         otm_calls,
+#         otm_calls[0]
+#     )
+#     return nearest
+#
+#
+# def get_nearest_otm_put(puts: Tuple[Option, ...], underlying_last_price: float, min_otm_percentage: float) -> Optional[Option]:
+#     otm_puts = sorted(puts, key=lambda o: o.strike_price)
+#     if not otm_puts or (otm_puts[0].strike_price / underlying_last_price) > (1 - min_otm_percentage):
+#         return None
+#     nearest = reduce(
+#         lambda acc, cur: cur if (cur.strike_price / underlying_last_price) <= (1 - min_otm_percentage) and cur.strike_price > acc.strike_price else acc,
+#         otm_puts,
+#         otm_puts[0]
+#     )
+#     return nearest
 
 
-def get_nearest_delta_call(calls: Tuple[Option, ...], min_delta: float) -> Option:
-    assert min_delta > 0, 'Delta must be > 0 for call options.'
-    otm_calls = sorted(calls, key=lambda o: o.strike_price, reverse=True)
-    nearest = reduce(
-        lambda acc, cur: cur if min_delta > cur.greeks.delta > acc.greeks.delta else acc,
-        otm_calls,
-        otm_calls[0]
-    )
-    return nearest
-
-
-def get_nearest_delta_put(puts: Tuple[Option, ...], min_delta: float) -> Option:
-    assert min_delta < 0, 'Delta must be < 0 for put options.'
-    otm_puts = sorted(puts, key=lambda o: o.strike_price)
-    nearest = reduce(
-        lambda acc, cur: cur if min_delta < cur.greeks.delta < acc.greeks.delta else acc,
-        otm_puts,
-        otm_puts[0]
-    )
-    return nearest
+# def get_nearest_delta_call(calls: Tuple[Option, ...], min_delta: float) -> Option:
+#     assert min_delta > 0, 'Delta must be > 0 for call options.'
+#     otm_calls = sorted(calls, key=lambda o: o.strike_price, reverse=True)
+#     nearest = reduce(
+#         lambda acc, cur: cur if min_delta > cur.greeks.delta > acc.greeks.delta else acc,
+#         otm_calls,
+#         otm_calls[0]
+#     )
+#     return nearest
+#
+#
+# def get_nearest_delta_put(puts: Tuple[Option, ...], min_delta: float) -> Option:
+#     assert min_delta < 0, 'Delta must be < 0 for put options.'
+#     otm_puts = sorted(puts, key=lambda o: o.strike_price)
+#     nearest = reduce(
+#         lambda acc, cur: cur if min_delta < cur.greeks.delta < acc.greeks.delta else acc,
+#         otm_puts,
+#         otm_puts[0]
+#     )
+#     return nearest
