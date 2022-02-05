@@ -1,5 +1,6 @@
 import inspect
 from datetime import datetime, timedelta, date as _date
+from functools import reduce
 from typing import Tuple, Any, Callable, Mapping
 
 from options.models import DateRange, TimeRange
@@ -46,7 +47,7 @@ def create_balanced_portfolio(
 
     remaining_spend = max_spend
     items_desc_price = sorted(items, key=get_price, reverse=True)
-    positions = {}
+    positions = {get_key(item): 0 for item in items}
     while _get_num_affordable_items(remaining_spend):
         for item in items_desc_price:
             if not _get_num_affordable_items(remaining_spend):
@@ -54,11 +55,11 @@ def create_balanced_portfolio(
             even_spend_per = remaining_spend / _get_num_affordable_items(remaining_spend)
             if even_spend_per >= get_price(item) * batch_size + cost_per_batch:
                 quantity = int(even_spend_per / (get_price(item) * batch_size + cost_per_batch)) * batch_size
-                positions[get_key(item)] = positions.get(get_key(item), 0) + quantity
+                positions[get_key(item)] += quantity
                 remaining_spend -= get_price(item) * quantity + cost_per_batch * (quantity / batch_size)
             else:
                 quantity = batch_size if remaining_spend >= batch_size * get_price(item) + cost_per_batch else 0
-                positions[get_key(item)] = positions.get(get_key(item), 0) + quantity
+                positions[get_key(item)] += quantity
                 remaining_spend -= get_price(item) * quantity + cost_per_batch * (quantity / batch_size)
     return positions
 
@@ -80,6 +81,6 @@ class Criteria:
             return _func
 
         def _all(item):
-            return all([_partial(func)(item) for func in self.criteria])
+            return reduce(lambda acc, func: acc and _partial(func)(item), self.criteria, True)
 
         return _all
