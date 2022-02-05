@@ -77,36 +77,22 @@ def get_option_pairs(symbol: str, expiry_date: date) -> Tuple[OptionPair, ...]:
     option_pairs = res['OptionChainResponse']['OptionPair']
     data = tuple([
         OptionPair(
-            call=Option(
-                OptionType.Call,
+            **dict([(key, Option(
+                option_type,
                 expiry_date,
-                option_pair['Call']['strikePrice'],
-                option_pair['Call']['lastPrice'],
-                option_pair['Call']['volume'],
+                option_pair[res_key]['strikePrice'],
+                option_pair[res_key]['lastPrice'],
+                option_pair[res_key]['volume'],
+                option_pair[res_key]['openInterest'],
                 Greeks(
-                    option_pair['Call']['OptionGreeks']['rho'],
-                    option_pair['Call']['OptionGreeks']['vega'],
-                    option_pair['Call']['OptionGreeks']['theta'],
-                    option_pair['Call']['OptionGreeks']['delta'],
-                    option_pair['Call']['OptionGreeks']['gamma'],
-                    option_pair['Call']['OptionGreeks']['iv'],
+                    option_pair[res_key]['OptionGreeks']['rho'],
+                    option_pair[res_key]['OptionGreeks']['vega'],
+                    option_pair[res_key]['OptionGreeks']['theta'],
+                    option_pair[res_key]['OptionGreeks']['delta'],
+                    option_pair[res_key]['OptionGreeks']['gamma'],
+                    option_pair[res_key]['OptionGreeks']['iv'],
                 )
-            ),
-            put=Option(
-                OptionType.Put,
-                expiry_date,
-                option_pair['Put']['strikePrice'],
-                option_pair['Put']['lastPrice'],
-                option_pair['Put']['volume'],
-                Greeks(
-                    option_pair['Put']['OptionGreeks']['rho'],
-                    option_pair['Put']['OptionGreeks']['vega'],
-                    option_pair['Put']['OptionGreeks']['theta'],
-                    option_pair['Put']['OptionGreeks']['delta'],
-                    option_pair['Put']['OptionGreeks']['gamma'],
-                    option_pair['Put']['OptionGreeks']['iv'],
-                )
-            )
+            )) for key, option_type, res_key in [('call', OptionType.Call, 'Call'), ('put', OptionType.Put, 'Put')]])
         ) for option_pair in option_pairs
     ])
     return data

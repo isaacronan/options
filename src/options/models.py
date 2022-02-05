@@ -28,6 +28,7 @@ class Option(NamedTuple):
     strike_price: float
     last_price: float
     volume: int
+    open_interest: int
     greeks: Greeks
 
 
