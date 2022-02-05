@@ -40,5 +40,5 @@ async def plot(
             normalize=normalize,
         )
     )
-    async with websockets.connect('ws://localhost:8765') as websocket:
+    async with websockets.connect('ws://options-server:8765') as websocket:
         await websocket.send(json.dumps(data))

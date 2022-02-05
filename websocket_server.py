@@ -3,6 +3,8 @@ import websockets
 from websockets.legacy.server import WebSocketServerProtocol
 
 connected = set()
+
+
 async def handler(websocket: WebSocketServerProtocol):
     connected.add(websocket)
     while True:

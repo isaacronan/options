@@ -23,8 +23,14 @@ Start a jupyter notebook session (which runs on port 8088):
 ./jupyter.sh
 ```
 
-Or enter into a terminal in the docker container to edit/run scripts:
+Start a server to plot values in a web browser (on port 8000):
 
 ```bash
-./run.sh
+./server.sh
+```
+
+Enter into a terminal in the docker container to edit/run scripts:
+
+```bash
+./shell.sh
 ```
