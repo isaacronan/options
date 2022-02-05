@@ -65,19 +65,19 @@ def create_balanced_portfolio(
 
 
 class Criteria:
-    def __init__(self, *criteria: Callable[..., bool]):
+    def __init__(self, param_name: str, *criteria: Callable[..., bool]):
+        self.param_name = param_name
         self.criteria = tuple(criteria)
 
     def n(self, criterion) -> 'Criteria':
-        return Criteria(*self.criteria, criterion)
+        return Criteria(self.param_name, *self.criteria, criterion)
 
     def __call__(self, **kwargs) -> Callable[[Any], bool]:
         def _partial(func):
-            additional_param_names = list(inspect.signature(func).parameters.keys())[1:]
-            additional_param_values = [kwargs[name] for name in additional_param_names]
-
             def _func(item):
-                return func(item, *additional_param_values)
+                params = {**kwargs, self.param_name: item}
+                param_names = list(inspect.signature(func).parameters.keys())
+                return func(*[params[name] for name in param_names])
             return _func
 
         def _all(item):
