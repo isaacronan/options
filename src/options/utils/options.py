@@ -25,8 +25,15 @@ def get_return(option_batch: OptionBatch, underlying_price: float) -> float:
     return option_batch.contract_count * MULTIPLIER * max([0, delta])
 
 
-def get_best_option(options: Tuple[Option, ...], option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
+def get_highest_option(options: Tuple[Option, ...], option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
     candidate_options = tuple(filter(option_criteria, options))
     if not candidate_options:
         return None
     return max(candidate_options, key=lambda option: option.last_price)
+
+
+def get_lowest_option(options: Tuple[Option, ...], option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
+    candidate_options = tuple(filter(option_criteria, options))
+    if not candidate_options:
+        return None
+    return min(candidate_options, key=lambda option: option.last_price)

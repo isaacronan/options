@@ -9,7 +9,7 @@ from options.models import Option, OptionBatch, OptionType, Period, TimeRange, H
 from options.utils.common import get_changed_price, get_weighted_price
 from options.utils.historical import get_collapsed_historical_prices, get_weighted_historical_prices_by_group
 from options.utils.options import get_option_batch_cost, get_return, MULTIPLIER, COMMISSION_PER_CONTRACT, \
-    get_nearest_option, get_best_option
+    get_nearest_option, get_highest_option, get_lowest_option
 
 
 class OptionTradeScenario:
@@ -93,13 +93,21 @@ class OptionInspector:
         puts = tuple([option_pair.put for option_pair in self.option_pairs])
         return puts
 
-    def get_best_call(self, option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
-        best = get_best_option(self.calls, option_criteria)
-        return best
+    def get_highest_call(self, option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
+        highest = get_highest_option(self.calls, option_criteria)
+        return highest
 
-    def get_best_put(self, option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
-        best = get_best_option(self.puts, option_criteria)
-        return best
+    def get_highest_put(self, option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
+        highest = get_highest_option(self.puts, option_criteria)
+        return highest
+
+    def get_lowest_call(self, option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
+        lowest = get_lowest_option(self.calls, option_criteria)
+        return lowest
+
+    def get_lowest_put(self, option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
+        lowest = get_lowest_option(self.puts, option_criteria)
+        return lowest
 
     def test_option_write(
             self,
@@ -108,12 +116,12 @@ class OptionInspector:
             num_periods: int,
             option_criteria: Callable[[Option], bool] = lambda _: True
     ) -> OptionWriteScenario:
-        best = self.get_best_call(option_criteria) if option_type == OptionType.Call else self.get_best_put(option_criteria)
-        assert best is not None, 'No option found to satisfy criteria.'
+        highest = self.get_highest_call(option_criteria) if option_type == OptionType.Call else self.get_highest_put(option_criteria)
+        assert highest is not None, 'No option found to satisfy criteria.'
         return OptionWriteScenario(
             self.underlying_last_price,
             initial_num_shares,
-            best,
+            highest,
             num_periods,
         )
 
