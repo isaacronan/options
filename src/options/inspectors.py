@@ -36,29 +36,33 @@ class OptionTradeScenario:
 
 
 class OptionWriteScenario:
-    def __init__(self, underlying_price: float, initial_num_shares: int, option: Option, num_periods: int):
+    def __init__(self, underlying_price: float, initial_num_shares: int, write_option: Option, num_periods: int, hedge_option: Optional[Option] = None):
         self.underlying_price = underlying_price
         self.initial_num_shares = initial_num_shares
-        self.option = option
+        self.write_option = write_option
         self.num_periods = num_periods
+        self.hedge_option = hedge_option
 
     @property
     def share_price(self):
-        return self.underlying_price if self.option.option_type == OptionType.Call else self.option.strike_price
+        return self.underlying_price if self.write_option.option_type == OptionType.Call else self.write_option.strike_price
 
     @property
     def periods(self) -> Tuple[Period, ...]:
-        option_cost = self.option.last_price
+        write_cost = self.write_option.last_price
         num_shares = self.initial_num_shares
         cash = 0
         periods = []
         for i in range(self.num_periods):
             num_contracts = int(num_shares / MULTIPLIER)
-            premium = num_contracts * MULTIPLIER * option_cost
-            cash += premium - (num_contracts * COMMISSION_PER_CONTRACT)
-            if cash >= self.share_price * MULTIPLIER:
-                purchase_batch_size = int(cash / (self.share_price * MULTIPLIER))
-                cash -= purchase_batch_size * self.share_price * MULTIPLIER
+            premium = num_contracts * MULTIPLIER * write_cost
+            expenses = num_contracts * COMMISSION_PER_CONTRACT
+            if self.hedge_option is not None:
+                expenses += num_contracts * MULTIPLIER * self.hedge_option.last_price + num_contracts * COMMISSION_PER_CONTRACT
+            cash += premium - expenses
+            if cash >= self.share_price * MULTIPLIER + 0:
+                purchase_batch_size = int(cash / (self.share_price * MULTIPLIER + 0))
+                cash -= purchase_batch_size * (self.share_price * MULTIPLIER + 0)
                 num_shares += purchase_batch_size * MULTIPLIER
             periods.append(Period(cash, num_shares))
         return tuple(periods)
@@ -112,17 +116,16 @@ class OptionInspector:
     def test_option_write(
             self,
             initial_num_shares: int,
-            option_type: OptionType,
             num_periods: int,
-            option_criteria: Callable[[Option], bool] = lambda _: True
+            write_option: Option,
+            hedge_option: Optional[Option] = None
     ) -> OptionWriteScenario:
-        highest = self.get_highest_call(option_criteria) if option_type == OptionType.Call else self.get_highest_put(option_criteria)
-        assert highest is not None, 'No option found to satisfy criteria.'
         return OptionWriteScenario(
             self.underlying_last_price,
             initial_num_shares,
-            highest,
+            write_option,
             num_periods,
+            hedge_option
         )
 
     def test_option_trade(

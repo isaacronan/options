@@ -39,8 +39,8 @@ def create_balanced_portfolio(
         items: Tuple[Any, ...],
         get_key: Callable[[Any], str],
         get_price: Callable[[Any], float],
-        batch_size: int = 100,
-        cost_per_batch: float = 0.65
+        batch_size: int,
+        cost_per_batch: float
 ) -> Mapping[str, int]:
     def _get_num_affordable_items(_remaining_spend):
         return len([i for i in items if _remaining_spend >= get_price(i) * batch_size + cost_per_batch])
