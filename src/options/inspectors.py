@@ -5,11 +5,11 @@ from datetime import date
 
 from options.data.historical import get_historical_prices_by_symbol
 from options.data.market import get_last, get_option_pairs
-from options.models import Option, OptionBatch, OptionType, Period, TimeRange, HistoricalPrice
-from options.utils.common import get_changed_price, get_weighted_price
+from options.models import Option, OptionBatch, Period, TimeRange, HistoricalPrice
+from options.utils.common import get_weighted_price
 from options.utils.historical import get_collapsed_historical_prices, get_weighted_historical_prices_by_group
 from options.utils.options import get_option_batch_cost, get_return, MULTIPLIER, COMMISSION_PER_CONTRACT, \
-    get_nearest_option, get_highest_option, get_lowest_option
+    get_highest_option, get_lowest_option
 
 
 class OptionTradeScenario:
@@ -36,16 +36,12 @@ class OptionTradeScenario:
 
 
 class OptionWriteScenario:
-    def __init__(self, underlying_price: float, initial_num_shares: int, write_option: Option, num_periods: int, hedge_option: Optional[Option] = None):
-        self.underlying_price = underlying_price
+    def __init__(self, share_price: float, initial_num_shares: int, write_option: Option, num_periods: int, hedge_option: Optional[Option] = None):
+        self.share_price = share_price  # price per unit of accumulation (i.e. underlying price for calls, strike price for puts)
         self.initial_num_shares = initial_num_shares
         self.write_option = write_option
         self.num_periods = num_periods
         self.hedge_option = hedge_option
-
-    @property
-    def share_price(self):
-        return self.underlying_price if self.write_option.option_type == OptionType.Call else self.write_option.strike_price
 
     @property
     def periods(self) -> Tuple[Period, ...]:
@@ -112,35 +108,6 @@ class OptionInspector:
     def get_lowest_put(self, option_criteria: Callable[[Option], bool] = lambda _: True) -> Optional[Option]:
         lowest = get_lowest_option(self.puts, option_criteria)
         return lowest
-
-    def test_option_write(
-            self,
-            initial_num_shares: int,
-            num_periods: int,
-            write_option: Option,
-            hedge_option: Optional[Option] = None
-    ) -> OptionWriteScenario:
-        return OptionWriteScenario(
-            self.underlying_last_price,
-            initial_num_shares,
-            write_option,
-            num_periods,
-            hedge_option
-        )
-
-    def test_option_trade(
-            self,
-            contract_count: int,
-            option_type: OptionType,
-            target_strike_percentage_change: float,
-            target_underlying_percentage_change: float
-    ) -> OptionTradeScenario:
-        target_underlying_price = get_changed_price(self.underlying_last_price, target_underlying_percentage_change)
-        target_strike_price = get_changed_price(self.underlying_last_price, target_strike_percentage_change)
-        options = tuple((option.call if option_type == OptionType.Call else option.put) for option in self.option_pairs)
-        nearest_option = get_nearest_option(target_strike_price, options)
-
-        return OptionTradeScenario(target_underlying_price, nearest_option, contract_count)
 
 
 class PortfolioInspector:
