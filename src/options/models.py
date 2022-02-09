@@ -45,6 +45,7 @@ class OptionBatch(NamedTuple):
 class Period(NamedTuple):
     cash: float
     num_shares: int
+    net_premium: float
 
 
 class DateRange(NamedTuple):

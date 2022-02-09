@@ -27,3 +27,13 @@ def get_lowest_option(options: Tuple[Option, ...], option_criteria: Callable[[Op
     if not candidate_options:
         return None
     return min(candidate_options, key=lambda option: option.last_price)
+
+
+def get_net_premium(num_shares: int, write_option: Option, hedge_option: Optional[Option] = None) -> float:
+    num_contracts = int(num_shares / MULTIPLIER)
+    premium = num_contracts * MULTIPLIER * write_option.last_price
+    expenses = num_contracts * COMMISSION_PER_CONTRACT
+    if hedge_option is not None:
+        expenses += num_contracts * MULTIPLIER * hedge_option.last_price + num_contracts * COMMISSION_PER_CONTRACT
+    net_premium = premium - expenses
+    return net_premium

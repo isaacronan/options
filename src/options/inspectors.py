@@ -9,7 +9,7 @@ from options.models import Option, OptionBatch, Period, TimeRange, HistoricalPri
 from options.utils.common import get_weighted_price
 from options.utils.historical import get_collapsed_historical_prices, get_weighted_historical_prices_by_group
 from options.utils.options import get_option_batch_cost, get_return, MULTIPLIER, COMMISSION_PER_CONTRACT, \
-    get_highest_option, get_lowest_option
+    get_highest_option, get_lowest_option, get_net_premium
 
 
 class OptionTradeScenario:
@@ -45,22 +45,17 @@ class OptionWriteScenario:
 
     @property
     def periods(self) -> Tuple[Period, ...]:
-        write_cost = self.write_option.last_price
         num_shares = self.initial_num_shares
         cash = 0
         periods = []
         for i in range(self.num_periods):
-            num_contracts = int(num_shares / MULTIPLIER)
-            premium = num_contracts * MULTIPLIER * write_cost
-            expenses = num_contracts * COMMISSION_PER_CONTRACT
-            if self.hedge_option is not None:
-                expenses += num_contracts * MULTIPLIER * self.hedge_option.last_price + num_contracts * COMMISSION_PER_CONTRACT
-            cash += premium - expenses
+            net_premium = get_net_premium(num_shares, self.write_option, self.hedge_option)
+            cash += net_premium
             if cash >= self.share_price * MULTIPLIER + 0:
                 purchase_batch_size = int(cash / (self.share_price * MULTIPLIER + 0))
                 cash -= purchase_batch_size * (self.share_price * MULTIPLIER + 0)
                 num_shares += purchase_batch_size * MULTIPLIER
-            periods.append(Period(cash, num_shares))
+            periods.append(Period(cash, num_shares, net_premium))
         return tuple(periods)
 
     @property
