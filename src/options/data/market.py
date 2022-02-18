@@ -1,6 +1,7 @@
-from typing import Tuple, Callable, Any
+from typing import Tuple, Callable, Any, Union
 
 import requests
+import re
 from rauth import OAuth1Service, OAuth1Session
 import os
 from datetime import date
@@ -105,17 +106,24 @@ class Screener(tuple):
                 'https://api.nasdaq.com/api/screener/stocks?tableonly=true&limit=25&offset=0&download=true',
                 headers={'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'}
             ).json()['data']['rows']
+            pattern = re.compile(r'^\s*(\w+(/\w+)?)\s*$')
             return tuple.__new__(Screener, tuple([
                 Stock(
-                    symbol=row['symbol'],
+                    symbol=pattern.search(row['symbol']).group(1).replace('/', '.'),
                     name=row['name'],
                     last_price=float(row['lastsale'][1:]),
                     volume=int(row['volume']),
                 )
-                for row in rows
+                for row in rows if pattern.search(row['symbol'])
             ]))
         else:
             return tuple.__new__(Screener, stocks)
+
+    def __getitem__(self, item: Union[slice, int]) -> Union['Screener', Stock]:
+        if isinstance(item, slice):
+            return Screener(tuple(self)[item])
+        else:
+            return tuple(self)[item]
 
     def where(self, condition: Callable[[Stock], bool]) -> 'Screener':
         return Screener(tuple(filter(condition, self)))
@@ -125,9 +133,3 @@ class Screener(tuple):
 
     def desc(self, key: Callable[[Stock], Any]) -> 'Screener':
         return Screener(tuple(sorted(self, key=key, reverse=True)))
-
-    def head(self, count) -> 'Screener':
-        return Screener(self[:count])
-
-    def tail(self, count) -> 'Screener':
-        return Screener(self[-count:])
