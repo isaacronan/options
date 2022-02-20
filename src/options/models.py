@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 
 class HistoricalPrice(NamedTuple):
@@ -75,3 +75,8 @@ class Stock(NamedTuple):
 class ExpiryType(Enum):
     Weekly = 'WEEKLY'
     Monthly = 'MONTHLY'
+
+
+class QuoteDetail(NamedTuple):
+    last_price: float
+    next_earnings_date: Optional[date]

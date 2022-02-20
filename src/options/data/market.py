@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Any, Union
+from typing import Tuple, Callable, Any, Union, Optional
 
 import requests
 import re
@@ -7,7 +7,7 @@ import os
 from datetime import date
 from functools import lru_cache
 
-from options.models import Option, OptionPair, OptionType, Stock, ExpiryType, Greeks
+from options.models import Option, OptionPair, OptionType, Stock, ExpiryType, Greeks, QuoteDetail
 
 
 @lru_cache
@@ -39,13 +39,22 @@ def session() -> OAuth1Session:
     return _session
 
 
-def get_last(symbols: Tuple[str, ...]) -> Tuple[float, ...]:
+def get_quote_detail(symbols: Tuple[str, ...]) -> Tuple[QuoteDetail, ...]:
     _symbols = ','.join(symbols)
-    quotes = session().get(f'https://api.etrade.com/v1/market/quote/{_symbols}.json').json()
+    params = dict(
+        requireEarningsDate=True
+    )
+    quotes = session().get(f'https://api.etrade.com/v1/market/quote/{_symbols}.json', params=params).json()
     assert 'QuoteData' in quotes['QuoteResponse'], [message['description'] for message in quotes['QuoteResponse']['Messages']['Message']]
     quotes = [[q for q in quotes['QuoteResponse']['QuoteData'] if q['Product']['symbol'] == symbol][0] for symbol in symbols]
-    last = [quote['All']['lastTrade'] for quote in quotes]
-    return tuple(last)
+
+    def _date(d: str) -> Optional[date]:
+        if not d:
+            return None
+        mm, dd, yyyy = d.split('/')
+        return date(*map(int, [yyyy, mm, dd]))
+    quote_details = [QuoteDetail(quote['All']['lastTrade'], _date(quote['All']['nextEarningDate'])) for quote in quotes]
+    return tuple(quote_details)
 
 
 def get_expiry_dates(symbol: str, expiry_type: ExpiryType = ExpiryType.Weekly) -> Tuple[date, ...]:

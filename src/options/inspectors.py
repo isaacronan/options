@@ -4,7 +4,7 @@ from typing import Tuple, Callable, Optional
 from datetime import date
 
 from options.data.historical import get_historical_prices_by_symbol
-from options.data.market import get_last, get_option_pairs
+from options.data.market import get_quote_detail, get_option_pairs
 from options.models import Option, OptionBatch, Period, TimeRange, HistoricalPrice
 from options.utils.common import get_weighted_price
 from options.utils.historical import get_collapsed_historical_prices, get_weighted_historical_prices_by_group
@@ -75,7 +75,7 @@ class OptionInspector:
     def __init__(self, symbol: str, expiry_date: date):
         self.symbol = symbol
         self.expiry_date = expiry_date
-        self.underlying_last_price, = get_last((self.symbol,))
+        self.quote_detail, = get_quote_detail((self.symbol,))
         self.option_pairs = get_option_pairs(self.symbol, self.expiry_date)
 
     @property
@@ -110,7 +110,7 @@ class PortfolioInspector:
         self.symbols = symbols
 
     def present_value(self, share_counts: Tuple[int, ...]) -> float:
-        last_prices = get_last(tuple(symbol for symbol in self.symbols))
+        last_prices = map(lambda q: q.last_price, get_quote_detail(tuple(symbol for symbol in self.symbols)))
         return sum([get_weighted_price(last_price, share_count) for last_price, share_count in zip(last_prices, share_counts)])
 
     def portfolio_historical_prices(self, share_counts: Tuple[int, ...], time_range: TimeRange) -> Tuple[HistoricalPrice, ...]:
