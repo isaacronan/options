@@ -82,6 +82,8 @@ def get_option_pairs(symbol: str, expiry_date: date) -> Tuple[OptionPair, ...]:
                 option_type,
                 expiry_date,
                 option_pair[res_key]['strikePrice'],
+                option_pair[res_key]['bid'],
+                option_pair[res_key]['ask'],
                 option_pair[res_key]['lastPrice'],
                 option_pair[res_key]['volume'],
                 option_pair[res_key]['openInterest'],

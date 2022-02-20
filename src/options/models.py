@@ -26,6 +26,8 @@ class Option(NamedTuple):
     option_type: OptionType
     expiry_date: date
     strike_price: float
+    bid_price: float
+    ask_price: float
     last_price: float
     volume: int
     open_interest: int
