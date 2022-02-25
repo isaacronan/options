@@ -39,7 +39,7 @@ def session() -> OAuth1Session:
     return _session
 
 
-def get_quote_detail(symbols: Tuple[str, ...]) -> Tuple[QuoteDetail, ...]:
+def get_quote_detail(symbols: Tuple[str, ...], raw: bool = False) -> Tuple[QuoteDetail, ...]:
     _symbols = ','.join(symbols)
     params = dict(
         requireEarningsDate=True
@@ -48,12 +48,23 @@ def get_quote_detail(symbols: Tuple[str, ...]) -> Tuple[QuoteDetail, ...]:
     assert 'QuoteData' in quotes['QuoteResponse'], [message['description'] for message in quotes['QuoteResponse']['Messages']['Message']]
     quotes = [[q for q in quotes['QuoteResponse']['QuoteData'] if q['Product']['symbol'] == symbol][0] for symbol in symbols]
 
+    if raw:
+        return tuple(quotes)
+
     def _date(d: str) -> Optional[date]:
         if not d:
             return None
         mm, dd, yyyy = d.split('/')
         return date(*map(int, [yyyy, mm, dd]))
-    quote_details = [QuoteDetail(quote['All']['lastTrade'], _date(quote['All']['nextEarningDate'])) for quote in quotes]
+    quote_details = [QuoteDetail(
+        quote['All']['lastTrade'],
+        _date(quote['All']['nextEarningDate']),
+        quote['All']['marketCap'],
+        quote['All']['companyName'],
+        quote['All']['high52'],
+        quote['All']['low52'],
+        quote['All']['averageVolume'],
+    ) for quote in quotes]
     return tuple(quote_details)
 
 
