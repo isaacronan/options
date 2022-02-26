@@ -1,9 +1,11 @@
+from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
-from typing import NamedTuple, Optional
+from typing import Optional
 
 
-class HistoricalPrice(NamedTuple):
+@dataclass(frozen=True)
+class HistoricalPrice:
     date: date
     price: float
 
@@ -13,7 +15,8 @@ class OptionType(Enum):
     Put = 'Put'
 
 
-class Greeks(NamedTuple):
+@dataclass(frozen=True)
+class Greeks:
     rho: float
     vega: float
     theta: float
@@ -22,7 +25,8 @@ class Greeks(NamedTuple):
     iv: float
 
 
-class Option(NamedTuple):
+@dataclass(frozen=True)
+class Option:
     option_type: OptionType
     expiry_date: date
     strike_price: float
@@ -34,38 +38,45 @@ class Option(NamedTuple):
     greeks: Greeks
 
 
-class OptionPair(NamedTuple):
+@dataclass(frozen=True)
+class OptionPair:
     call: Option
     put: Option
 
 
-class OptionBatch(NamedTuple):
+@dataclass(frozen=True)
+class OptionBatch:
     contract_count: int
     option: Option
 
 
-class Period(NamedTuple):
+@dataclass(frozen=True)
+class Period:
     cash: float
     num_shares: int
     net_premium: float
 
 
-class DateRange(NamedTuple):
+@dataclass(frozen=True)
+class DateRange:
     start: date
     end: date
 
 
-class TimeRange(NamedTuple):
+@dataclass(frozen=True)
+class TimeRange:
     start: datetime
     end: datetime
 
 
-class PriceChange(NamedTuple):
+@dataclass(frozen=True)
+class PriceChange:
     date_range: DateRange
     percentage: float
 
 
-class Stock(NamedTuple):
+@dataclass(frozen=True)
+class Stock:
     symbol: str
     name: str
     last_price: float
@@ -77,7 +88,8 @@ class ExpiryType(Enum):
     Monthly = 'MONTHLY'
 
 
-class QuoteDetail(NamedTuple):
+@dataclass(frozen=True)
+class QuoteDetail:
     last_price: float
     next_earnings_date: Optional[date]
     market_cap: float
