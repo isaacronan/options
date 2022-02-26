@@ -21,8 +21,8 @@ const createLinearScale = (data, getValue, rangeMin, rangeMax) => {
 };
 
 export const draw = (dataSets, options = {}) => {
-    const defaults = { stackCharts: false, showLabels: true, normalize: true };
-    const { stackCharts, showLabels, normalize } = { ...defaults, ...options };
+    const defaults = { stackCharts: false, showLabels: true, normalize: true, scatter: false };
+    const { stackCharts, showLabels, normalize, scatter } = { ...defaults, ...options };
     const WIDTH = d3.select('svg').node().width.baseVal.value;
     const HEIGHT = d3.select('svg').node().height.baseVal.value;
     const height = HEIGHT / dataSets.length
@@ -31,15 +31,15 @@ export const draw = (dataSets, options = {}) => {
 
     const allData = d3.merge(dataSets.map((dataSet, dataSetIndex) => dataSet.data.map(datum => ({...datum, dataSetIndex }))));
 
-    const xScale = createLinearScale(allData, d => d.x, 0, WIDTH);
+    const xScale = createLinearScale(allData, d => d.x.value, 0, WIDTH);
     const yScales = stackCharts ?
-        dataSets.map((dataSet) => createLinearScale(normalize ? dataSet.data : allData, d => d.y, HEIGHT, 0)) :
-        dataSets.map((dataSet, index) => createLinearScale(normalize ? dataSet.data : allData, d => d.y, height * (index + 1), height * index));
+        dataSets.map((dataSet) => createLinearScale(normalize ? dataSet.data : allData, d => d.y.value, HEIGHT, 0)) :
+        dataSets.map((dataSet, index) => createLinearScale(normalize ? dataSet.data : allData, d => d.y.value, height * (index + 1), height * index));
 
     const line = (dataSet, index) => {
         return d3.line()
-            .x(d => xScale(d.x))
-            .y(d => yScales[index](d.y))(dataSet.data);
+            .x(d => xScale(d.x.value))
+            .y(d => yScales[index](d.y.value))(dataSet.data);
     };
 
     const gChartUpdate = d3.select('svg').selectAll('.set').data(dataSets);
@@ -58,15 +58,16 @@ export const draw = (dataSets, options = {}) => {
     gChartEnter.select('.label')
         .attr('font-size', stackCharts ? 32 : d3.min([height * 0.8, 128]))
         .attr('x', 10)
-        .attr('y', stackCharts ? (d, i) => yScales[i](d.data[0].y) : (d, i) => (i + 1) * height);
+        .attr('y', stackCharts ? (d, i) => yScales[i](d.data[0].y.value) : (d, i) => (i + 1) * height);
     gChartUpdate.select('.label')
         .transition()
         .attr('font-size', stackCharts ? 32 : d3.min([height * 0.8, 128]))
         .attr('x', 10)
-        .attr('y', stackCharts ? (d, i) => yScales[i](d.data[0].y) : (d, i) => (i + 1) * height);
+        .attr('y', stackCharts ? (d, i) => yScales[i](d.data[0].y.value) : (d, i) => (i + 1) * height);
 
     gChartEnter.append('path').attr('class', 'line');
     gChartUpdate.merge(gChartEnter).select('.line')
+        .attr('class', scatter ? 'line off' : 'line')
         .style('stroke', (d, i) => colorScale(i));
     gChartEnter.select('.line')
         .attr('d', line);
@@ -76,7 +77,7 @@ export const draw = (dataSets, options = {}) => {
 
     const allDataScaled = d3.merge(dataSets.map((dataSet, dataSetIndex) => {
         return dataSet.data.map(({ x, y }) => {
-            return [xScale(x), yScales[dataSetIndex](y)];
+            return [xScale(x.value), yScales[dataSetIndex](y.value)];
         })
     }));
     const delaunay = d3.Delaunay.from(allDataScaled);
@@ -95,11 +96,19 @@ export const draw = (dataSets, options = {}) => {
         .attr('class', 'area');
 
     gHoverAreaUpdate.merge(gHoverAreaEnter).select('.point')
+        .attr('class', scatter ? 'point on' : 'point')
         .style('stroke', d => colorScale(allData[d.index].dataSetIndex))
-        .style('fill', d => colorScale(allData[d.index].dataSetIndex).copy({ opacity: 0.4 }))
-        .attr('cx', (d) => xScale(allData[d.index].x))
+        .style('fill', d => colorScale(allData[d.index].dataSetIndex).copy({ opacity: 0.4 }));
+    gHoverAreaEnter.select('.point')
+        .attr('cx', (d) => xScale(allData[d.index].x.value))
         .attr('cy', (d) => {
-            return yScales[allData[d.index].dataSetIndex](allData[d.index].y);
+            return yScales[allData[d.index].dataSetIndex](allData[d.index].y.value);
+        });
+    gHoverAreaUpdate.select('.point')
+        .transition()
+        .attr('cx', (d) => xScale(allData[d.index].x.value))
+        .attr('cy', (d) => {
+            return yScales[allData[d.index].dataSetIndex](allData[d.index].y.value);
         });
 
     gHoverAreaUpdate.merge(gHoverAreaEnter).select('.area')
@@ -112,9 +121,9 @@ export const draw = (dataSets, options = {}) => {
         })
         .on('mouseover', (e, d, i) => {
             d3.select('.tooltip').style('display', 'block');
-            d3.select('.tooltip-label').text(dataSets[allData[d.index].dataSetIndex].label);
-            d3.select('.tooltip-x').text(d3.timeFormat('%m-%d-%Y')(new Date(allData[d.index].x * 1000)));
-            d3.select('.tooltip-y').text(d3.format(',.2f')(allData[d.index].y));
+            d3.select('.tooltip-label').text(allData[d.index].label);
+            d3.select('.tooltip-x').text(allData[d.index].x.label);
+            d3.select('.tooltip-y').text(allData[d.index].y.label);
         })
         .on('mouseout', () => {
             d3.select('.tooltip').style('display', 'none');

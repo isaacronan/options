@@ -20,6 +20,10 @@ svg {
     stroke-width: 2;
 }
 
+.line.off {
+    display: none;
+}
+
 .area {
     /*stroke: black;*/
     fill: transparent;
@@ -31,8 +35,16 @@ svg {
     display: none;
 }
 
+.point.on {
+    display: block;
+}
+
 .group:hover .point {
     display: block;
+}
+
+.group:hover .point.on {
+    stroke-width: 4;
 }
 
 .tooltip {
