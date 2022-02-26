@@ -39,7 +39,7 @@ def session() -> OAuth1Session:
     return _session
 
 
-def get_quote_detail(symbols: Tuple[str, ...], raw: bool = False) -> Tuple[QuoteDetail, ...]:
+def get_quote_detail(symbols: Tuple[str, ...]) -> Tuple[QuoteDetail, ...]:
     _symbols = ','.join(symbols)
     params = dict(
         requireEarningsDate=True
@@ -47,9 +47,6 @@ def get_quote_detail(symbols: Tuple[str, ...], raw: bool = False) -> Tuple[Quote
     quotes = session().get(f'https://api.etrade.com/v1/market/quote/{_symbols}.json', params=params).json()
     assert 'QuoteData' in quotes['QuoteResponse'], [message['description'] for message in quotes['QuoteResponse']['Messages']['Message']]
     quotes = [[q for q in quotes['QuoteResponse']['QuoteData'] if q['Product']['symbol'] == symbol][0] for symbol in symbols]
-
-    if raw:
-        return tuple(quotes)
 
     def _date(d: str) -> Optional[date]:
         if not d:

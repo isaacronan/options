@@ -80,8 +80,8 @@ class ExpiryType(Enum):
 class QuoteDetail(NamedTuple):
     last_price: float
     next_earnings_date: Optional[date]
-    market_cap: float  # marketCap
-    company_name: str  # companyName
-    high_52: float  # high52
-    low_52: float  # low52
-    average_volume: int  # averageVolume
+    market_cap: float
+    name: str
+    high_52: float
+    low_52: float
+    average_volume: int
