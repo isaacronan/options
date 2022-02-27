@@ -45,6 +45,3 @@ http_thread = Thread(target=http_server)
 
 ws_thread.start()
 http_thread.start()
-
-ws_thread.join()
-http_thread.join()

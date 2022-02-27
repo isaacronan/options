@@ -58,12 +58,12 @@ export const draw = (dataSets, options = {}) => {
     gChartEnter.select('.label')
         .attr('font-size', stackCharts ? 32 : d3.min([height * 0.8, 128]))
         .attr('x', 10)
-        .attr('y', stackCharts ? (d, i) => yScales[i](d.data[0].y.value) : (d, i) => (i + 1) * height);
+        .attr('y', stackCharts ? (d, i) => 32 * (i + 1) + 10 : (d, i) => (i + 1) * height);
     gChartUpdate.select('.label')
         .transition()
         .attr('font-size', stackCharts ? 32 : d3.min([height * 0.8, 128]))
         .attr('x', 10)
-        .attr('y', stackCharts ? (d, i) => yScales[i](d.data[0].y.value) : (d, i) => (i + 1) * height);
+        .attr('y', stackCharts ? (d, i) => 32 * (i + 1) + 10 : (d, i) => (i + 1) * height);
 
     gChartEnter.append('path').attr('class', 'line');
     gChartUpdate.merge(gChartEnter).select('.line')
@@ -137,5 +137,5 @@ export const draw = (dataSets, options = {}) => {
                 .style('right', e.clientX < window.innerWidth / 2 ? 'unset' : '10px')
                 .style('top', e.clientY < window.innerHeight / 2 ? '15px' : 'unset')
                 .style('bottom', e.clientY < window.innerHeight / 2 ? 'unset' : '10px');
-        })
+        });
 };

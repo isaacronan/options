@@ -16,7 +16,6 @@ svg {
 
 .line {
     fill: none;
-    stroke: black;
     stroke-width: 2;
 }
 
@@ -25,7 +24,6 @@ svg {
 }
 
 .area {
-    /*stroke: black;*/
     fill: transparent;
     stroke-width: 1;
 }
